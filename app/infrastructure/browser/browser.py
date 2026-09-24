@@ -57,16 +57,26 @@ class Browser(BrowserBase):
         if not page.is_closed():
             await page.close()
 
-    async def close(self) -> None:
-        """Close all shared Playwright resources."""
+    async def _close_context(self) -> None:
+        """Close the shared browser context if it exists."""
         if self._context is not None:
             await self._context.close()
             self._context = None
 
+    async def _close_browser(self) -> None:
+        """Close the Chromium browser if it exists."""
         if self._browser is not None:
             await self._browser.close()
             self._browser = None
 
+    async def _stop_playwright(self) -> None:
+        """Stop the Playwright runtime if it exists."""
         if self._playwright is not None:
             await self._playwright.stop()
             self._playwright = None
+
+    async def close(self) -> None:
+        """Close all shared Playwright resources."""
+        await self._close_context()
+        await self._close_browser()
+        await self._stop_playwright()
