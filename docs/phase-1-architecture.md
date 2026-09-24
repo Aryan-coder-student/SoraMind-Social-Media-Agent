@@ -87,7 +87,7 @@ app/
         │   └── preprocess_url.py
         ├── discovery/
         │   ├── base.py
-        │   └── playwright.py
+        │   └── page_discovery.py
         ├── normalization/
         │   ├── base.py
         │   └── normalize.py
@@ -218,6 +218,19 @@ PageDiscovery ─────┘
 Use the async Playwright API. Do not launch a fresh browser process for every URL.
 
 ## 3. Page discovery
+
+`page_discovery.py` uses the shared browser abstraction from `app/infrastructure/browser`.
+It owns Company Knowledge-specific DOM extraction, while `browser.py` owns browser lifecycle/navigation.
+
+```text
+page_discovery.py
+       ↓
+browser/base.py
+       ↓
+browser/browser.py
+       ↓
+Playwright
+```
 
 Given one URL, return structural facts about the rendered page.
 
