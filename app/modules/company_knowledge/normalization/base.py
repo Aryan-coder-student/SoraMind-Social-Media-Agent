@@ -1,0 +1,1 @@
+"""Page normalizer contract."""
