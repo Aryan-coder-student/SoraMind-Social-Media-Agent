@@ -17,7 +17,9 @@ Normalization
    ↓
 Structured LLM Extraction
    ↓
-Persistence
+Repository
+   ↓
+SQLite
 ```
 
 The scheduler, Celery workers, website-change events, Media Intelligence, and social publishing are later phases.
@@ -27,15 +29,15 @@ The scheduler, Celery workers, website-change events, Media Intelligence, and so
 - Python 3.12+
 - Playwright async API for browser rendering and DOM extraction
 - Pydantic v2 for internal and structured-output models
-- SQLite for the initial persistence layer
+- SQLite for initial persistence
 - SQLAlchemy 2.x for database access
 - Alembic for schema migrations
 - Shared LLM provider registry under `app/core/llm`
 - `asyncio` for bounded browser concurrency
 - SHA-256 via `hashlib` for deterministic fingerprints where needed
-- pytest / pytest-asyncio for tests
-- Ruff for linting and formatting
-- uv for dependency/environment management
+- pytest / pytest-asyncio
+- Ruff
+- uv
 
 Not required in Phase 1:
 
@@ -59,17 +61,22 @@ app/
 │       └── providers/
 │           └── openai.py
 │
+├── database/
+│   ├── __init__.py
+│   ├── connection.py
+│   └── schema.py
+│
+├── repository/
+│   ├── __init__.py
+│   ├── base.py
+│   └── operations/
+│       ├── __init__.py
+│       └── sqlite_operation.py
+│
 ├── infrastructure/
-│   ├── browser/
-│   │   ├── base.py
-│   │   └── playwright.py
-│   │
-│   └── persistence/
-│       └── sqlite/
-│           ├── connection.py
-│           ├── schema.py
-│           └── repositories/
-│               └── company_knowledge.py
+│   └── browser/
+│       ├── base.py
+│       └── playwright.py
 │
 └── modules/
     └── company_knowledge/
@@ -87,43 +94,91 @@ app/
         ├── extraction/
         │   ├── base.py
         │   └── extractor.py
-        ├── models/
-        │   ├── crawl.py
-        │   ├── page.py
-        │   └── knowledge.py
-        └── repository/
-            └── base.py
+        └── models/
+            ├── crawl.py
+            ├── page.py
+            └── knowledge.py
 ```
 
-## Dependency direction
+## Repository Pattern
+
+The agreed persistence design is:
 
 ```text
 CompanyKnowledgeService
-        │
-        ├── CrawlStrategy
-        ├── PageDiscovery
-        ├── PageNormalizer
-        ├── KnowledgeExtractor
-        │       └── LLMProvider
-        └── CompanyKnowledgeRepository
-                ▲
-                │
-        SQLite implementation
+          │
+          ▼
+    Repository Base
+          │
+          ▼
+  SQLite Operation
+          │
+          ▼
+      Database
 ```
 
-Domain code depends on interfaces. Concrete browser, LLM provider, and database implementations remain outside the Company Knowledge domain.
+### `app/repository/base.py`
+
+Defines the persistence contract.
+
+Conceptually:
+
+```python
+class Repository(ABC):
+    @abstractmethod
+    def save(self, data): ...
+
+    @abstractmethod
+    def get(self, id): ...
+
+    @abstractmethod
+    def update(self, id, data): ...
+
+    @abstractmethod
+    def delete(self, id): ...
+```
+
+### `app/repository/operations/sqlite_operation.py`
+
+Contains the SQLite implementation of the repository contract.
+
+Later another backend can be added:
+
+```text
+repository/
+└── operations/
+    ├── sqlite_operation.py
+    └── postgres_operation.py
+```
+
+Company Knowledge should not contain SQLite-specific logic.
+
+### `app/database/connection.py`
+
+Responsible only for database connection/session setup.
+
+### `app/database/schema.py`
+
+Responsible for database schema/table definitions.
+
+This separates:
+
+```text
+repository/
+= how application data is persisted/retrieved
+
+database/
+= database connection + schema
+
+company_knowledge/
+= business/domain workflow
+```
 
 ## 1. URL discovery
 
-### Responsibility
-
-Answer only:
+The crawler answers only:
 
 > Which internal pages belong to the company website?
-
-The crawler must not call the LLM or persist company knowledge.
-
-### Pattern
 
 `CrawlStrategy` is the abstraction.
 
@@ -137,36 +192,22 @@ Possible later implementations:
 - `ManualURLStrategy`
 - `HybridCrawlStrategy`
 
-### URL preprocessing
-
 `preprocess_url.py` owns deterministic URL cleanup:
 
-- convert relative URLs to absolute
-- allow only configured domains
-- remove fragments
-- remove known tracking parameters
-- normalize trailing slashes
-- reject unsupported schemes
-- skip static assets
-- deduplicate canonical crawl URLs
+- relative → absolute
+- same-domain filtering
+- fragment removal
+- tracking-parameter cleanup
+- trailing-slash normalization
+- unsupported-scheme rejection
+- static-asset filtering
+- deduplication
 
-Do not remove all query parameters blindly; some may carry meaningful application state.
-
-### Crawl safety
-
-BFS should be bounded by configuration such as:
-
-- max pages
-- max depth
-- allowed domains
-- navigation timeout
-- bounded concurrency
+BFS must have safety limits such as max pages, max depth, timeout, and bounded concurrency.
 
 ## 2. Browser infrastructure
 
 Playwright should be initialized once and shared.
-
-Avoid launching a new browser process for each URL.
 
 ```text
 BFSCrawlStrategy ──┐
@@ -174,52 +215,39 @@ BFSCrawlStrategy ──┐
 PageDiscovery ─────┘
 ```
 
-Use the async Playwright API so later page acquisition can use controlled concurrency.
+Use the async Playwright API. Do not launch a fresh browser process for every URL.
 
 ## 3. Page discovery
 
-### Responsibility
-
 Given one URL, return structural facts about the rendered page.
 
-For SoraMinds, the primary structural boundary is the outermost `<section>` elements under the page's main content.
+For SoraMinds, use outermost `<section>` elements as the primary page boundary.
 
-Extract facts such as:
+Extract:
 
 - URL
 - title
 - meta description
 - canonical URL
 - section position
-- section DOM id/classes as metadata
-- all h1–h6 headings with level/text
+- DOM id/classes as metadata
+- h1–h6 headings
 - full section text
 - links
 - images
 - child count
 
-Do not infer products, pricing, features, or other semantics from CSS classes or section positions.
-
-Some valid sections have no heading, so heading presence cannot be the only section rule.
+Do not infer products, pricing, features, or services from CSS classes or positions.
 
 ## 4. Models
 
 ### `models/crawl.py`
 
-Represents crawl results and crawl metadata.
-
-Examples:
-
-- discovered URL
-- crawl depth
-- discovered-from URL
-- visited/skipped counts
+Crawl metadata such as URL, depth, discovered-from, visited count, and skipped count.
 
 ### `models/page.py`
 
-Represents what the browser observed.
-
-Suggested concepts:
+Observed page structure:
 
 - Heading
 - PageLink
@@ -229,9 +257,7 @@ Suggested concepts:
 
 ### `models/knowledge.py`
 
-Represents what the semantic extraction layer understood.
-
-Suggested concepts:
+Semantic extraction output:
 
 - KnowledgeItem
 - Entity
@@ -239,35 +265,31 @@ Suggested concepts:
 - SectionKnowledge
 - PageKnowledge
 
-Important distinction:
-
 ```text
 PageDocument
-= observed website structure
+= what Playwright observed
 
 PageKnowledge
-= semantic interpretation
+= what the extraction layer understood
 ```
 
 ## 5. Normalization
 
-Normalization is deterministic and conservative.
+Normalization is deterministic and conservative:
 
-Examples:
+- whitespace cleanup
+- newline normalization
+- URL normalization where appropriate
+- empty-section removal
+- obvious presentation-noise removal
 
-- normalize whitespace
-- normalize repeated newlines
-- canonicalize URLs where appropriate
-- remove empty sections
-- remove obvious presentation-only noise
-
-Normalization must not introduce semantic labels or business interpretation.
+It must not add semantic interpretation.
 
 ## 6. LLM extraction
 
 The extraction layer receives normalized page/section models and returns structured knowledge.
 
-Possible outputs:
+Possible output:
 
 - page summary
 - section summary
@@ -277,7 +299,7 @@ Possible outputs:
 - knowledge items
 - optional atomic facts
 
-LLM providers are accessed through the shared registry:
+LLM access goes through:
 
 ```text
 KnowledgeExtractor
@@ -289,27 +311,9 @@ configured provider
 
 The Company Knowledge module must not branch directly on provider names.
 
-## 7. Persistence boundary
+## 7. Service orchestration
 
-The repository interface belongs to the Company Knowledge domain:
-
-```text
-modules/company_knowledge/repository/base.py
-```
-
-The SQLite implementation belongs to infrastructure:
-
-```text
-infrastructure/persistence/sqlite/repositories/company_knowledge.py
-```
-
-This keeps Company Knowledge independent from SQLite and allows a later PostgreSQL implementation without changing domain logic.
-
-## 8. Service orchestration
-
-`service.py` coordinates the Phase 1 pipeline.
-
-Conceptually:
+`service.py` coordinates the Phase 1 flow:
 
 ```python
 urls = crawler.discover(seed_url)
@@ -324,18 +328,20 @@ for url in urls:
 The service must not contain:
 
 - raw Playwright implementation details
-- provider-specific LLM SDK code
+- provider-specific LLM SDK logic
 - raw SQLite statements
 
-## Design decisions
+## Final Phase 1 decisions
 
-1. Use `modules/` as the application boundary; do not use a top-level `generation/` package for Company Knowledge.
+1. Use `modules/` as the bounded application-module root.
 2. Keep Phase 1 synchronous and explicit.
 3. Use Strategy Pattern for crawl discovery.
-4. Share browser infrastructure between crawling and page extraction.
-5. Use async Playwright.
-6. Keep DOM discovery factual and semantic interpretation in the LLM extraction layer.
-7. Keep repository interfaces in the domain and concrete persistence implementations in infrastructure.
-8. Do not use JSON files as the source of truth for discovered URLs.
-9. Do not introduce Celery/events until the ongoing website-update phase.
-10. Do not hardcode SoraMinds products/services from CSS classes or section indexes.
+4. Use async Playwright.
+5. Share browser lifecycle infrastructure.
+6. Keep DOM discovery factual; keep semantic interpretation in extraction.
+7. Use a shared Repository Pattern under `app/repository`.
+8. Keep DB connection/schema under `app/database`.
+9. Keep SQLite implementation under `repository/operations/sqlite_operation.py`.
+10. Do not use JSON files as the source of truth.
+11. Do not introduce Celery/events in Phase 1.
+12. Do not hardcode business semantics from CSS classes or section positions.
