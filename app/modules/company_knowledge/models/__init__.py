@@ -1,0 +1,1 @@
+"""Company Knowledge data models."""

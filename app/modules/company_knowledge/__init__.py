@@ -1,0 +1,1 @@
+"""Company Knowledge bounded module."""
