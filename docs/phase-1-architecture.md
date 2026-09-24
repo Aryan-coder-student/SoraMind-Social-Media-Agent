@@ -76,7 +76,7 @@ app/
 ├── infrastructure/
 │   └── browser/
 │       ├── base.py
-│       └── playwright.py
+│       └── browser.py
 │
 └── modules/
     └── company_knowledge/
