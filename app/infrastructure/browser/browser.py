@@ -16,7 +16,6 @@ class Browser(BrowserBase):
 
     def __init__(
         self,
-        *,
         headless: bool = True,
         navigation_timeout_ms: int = 30_000,
     ) -> None:
