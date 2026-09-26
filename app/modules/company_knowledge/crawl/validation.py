@@ -2,24 +2,7 @@
 
 from urllib.parse import urlsplit
 
-
-SKIPPED_EXTENSIONS = {
-    ".jpg",
-    ".jpeg",
-    ".png",
-    ".gif",
-    ".webp",
-    ".svg",
-    ".ico",
-    ".css",
-    ".js",
-    ".mp4",
-    ".mp3",
-    ".webm",
-    ".woff",
-    ".woff2",
-    ".ttf",
-}
+from app.settings import SKIPPED_EXTENSIONS
 
 
 def normalize_host(host: str) -> str:
