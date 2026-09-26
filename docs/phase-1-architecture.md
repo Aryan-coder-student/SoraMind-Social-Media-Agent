@@ -53,6 +53,8 @@ Not required in Phase 1:
 
 ```text
 app/
+├── settings.py
+│
 ├── core/
 │   └── llm/
 │       ├── base.py
@@ -203,6 +205,8 @@ Possible later implementations:
 
 - same company domain
 - skip static assets
+
+`app/settings.py` owns the shared `SKIPPED_EXTENSIONS` configuration used by crawl validation.
 
 Current Phase 1 decisions:
 
