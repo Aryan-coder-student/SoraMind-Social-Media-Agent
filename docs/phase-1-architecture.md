@@ -84,7 +84,8 @@ app/
         ├── crawl/
         │   ├── base.py
         │   ├── bfs.py
-        │   └── preprocess_url.py
+        │   ├── preprocess_url.py
+        │   └── validation.py
         ├── discovery/
         │   ├── base.py
         │   └── page_discovery.py
@@ -192,16 +193,23 @@ Possible later implementations:
 - `ManualURLStrategy`
 - `HybridCrawlStrategy`
 
-`preprocess_url.py` owns deterministic URL cleanup:
+`preprocess_url.py` owns URL transformation only:
 
-- relative → absolute
-- same-domain filtering
-- fragment removal
-- tracking-parameter cleanup
-- trailing-slash normalization
-- unsupported-scheme rejection
-- static-asset filtering
-- deduplication
+- relative URL → absolute URL
+- remove the `#section` anchor
+- normalize the ending slash
+
+`validation.py` owns crawl validation:
+
+- same company domain
+- skip static assets
+
+Current Phase 1 decisions:
+
+- no tracking-parameter normalization
+- no explicit HTTP/HTTPS-only validation
+- PDF is not currently treated as a skipped static asset
+- deduplication belongs to the BFS crawl logic, not URL preprocessing
 
 BFS must have safety limits such as max pages, max depth, timeout, and bounded concurrency.
 
@@ -263,8 +271,6 @@ Crawl metadata such as URL, depth, discovered-from, visited count, and skipped c
 Observed page structure:
 
 - Heading
-- PageLink
-- PageImage
 - PageSection
 - PageDocument
 
@@ -272,9 +278,6 @@ Observed page structure:
 
 Semantic extraction output:
 
-- KnowledgeItem
-- Entity
-- optional Fact
 - SectionKnowledge
 - PageKnowledge
 
@@ -343,6 +346,10 @@ The service must not contain:
 - raw Playwright implementation details
 - provider-specific LLM SDK logic
 - raw SQLite statements
+
+## Documentation sync rule
+
+Whenever the folder structure, architecture, responsibilities, or any decision documented here changes, update this document in the same PR so the documentation matches the code.
 
 ## Final Phase 1 decisions
 
