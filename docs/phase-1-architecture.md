@@ -324,23 +324,30 @@ Playwright
 
 Given one URL, return structural facts about the rendered page.
 
-For SoraMinds, use outermost `<section>` elements as the primary page boundary.
+`PageDiscovery` receives the shared `BrowserBase`. For each extraction it opens a
+page, navigates it, inspects the rendered DOM, and closes that page in `finally`.
+The caller owns the browser lifecycle, so Page Discovery does not start or close
+the shared browser.
+
+Use outermost `<section>` elements as the page boundary. Prefer outermost
+sections below `<main>` when a main element exists; otherwise, fall back to
+outermost sections across the document. Preserve DOM order and empty sections.
 
 Extract:
 
-- URL
+- current/final URL after navigation
 - title
 - meta description
 - canonical URL
 - section position
 - DOM id/classes as metadata
-- h1–h6 headings
+- h1–h6 heading text and level
 - full section text
-- links
-- images
-- child count
+- direct child count
 
-Do not infer products, pricing, features, or services from CSS classes or positions.
+Missing or empty page metadata becomes `None`; section and heading text remains
+as observed. Page Discovery performs factual DOM extraction only. It does not
+infer semantics, normalize text, persist data, or invoke an LLM.
 
 ## 4. Models
 
