@@ -315,16 +315,18 @@ The normalization pipeline includes:
 
 The adapter keeps `unicode-sanity` out of `normalize.py` so the normalization logic depends on our own `TextCleaner` contract rather than a specific third-party library.
 
+`PageNormalizer` requires a `TextCleaner` to be passed explicitly. It does not create a default adapter internally. The caller/composition layer is responsible for creating `UnicodeSanityAdapter` and injecting it.
+
 `normalize.py` is kept focused on `PageNormalizer` orchestration, while `text_utils.py` owns the reusable cleaning operations.
 
 ```text
-PageNormalizer
-      ↓
-TextCleaner
-      ↓
+caller / composition layer
+          ↓
 UnicodeSanityAdapter
-      ↓
-unicode-sanity
+          ↓
+PageNormalizer(TextCleaner)
+          ↓
+text_utils.py
 ```
 
 `PageNormalizer.normalize()` cleans:
