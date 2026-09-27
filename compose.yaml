@@ -1,0 +1,14 @@
+services:
+  crawler:
+    build:
+      context: .
+    init: true
+    ipc: host
+    command:
+      - "${SEED_URL:-https://example.com}"
+      - --max-pages
+      - "${MAX_PAGES:-10}"
+      - --max-depth
+      - "${MAX_DEPTH:-1}"
+      - --concurrency
+      - "${CONCURRENCY:-5}"
