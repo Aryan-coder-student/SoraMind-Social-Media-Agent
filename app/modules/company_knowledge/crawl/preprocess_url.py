@@ -24,11 +24,13 @@ def remove_anchor(url: str) -> str:
 
 
 def normalize_end_slash(url: str) -> str:
-    """Remove the ending slash except for the root URL."""
+    """Normalize trailing slashes while preserving one slash for the root URL."""
     parsed_url = urlsplit(url)
     path = parsed_url.path
 
-    if path != "/":
+    if not path:
+        path = "/"
+    elif path != "/":
         path = path.rstrip("/")
 
     return urlunsplit(
