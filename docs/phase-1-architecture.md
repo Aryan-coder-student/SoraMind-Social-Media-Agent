@@ -38,6 +38,7 @@ The scheduler, Celery workers, website-change events, Media Intelligence, and so
 - pytest / pytest-asyncio
 - Ruff
 - uv
+- unicode-sanity for Unicode text cleanup behind an adapter
 
 Not required in Phase 1:
 
@@ -93,7 +94,8 @@ app/
         │   └── page_discovery.py
         ├── normalization/
         │   ├── base.py
-        │   └── normalize.py
+        │   ├── normalize.py
+        │   └── text_cleaner.py
         ├── extraction/
         │   ├── base.py
         │   └── extractor.py
@@ -301,12 +303,25 @@ Normalization is deterministic, synchronous, and conservative.
 
 The normalization pipeline includes:
 
-- `clean_hidden_characters()` — removes zero-width/BOM characters and converts non-breaking spaces to normal spaces
+- `TextCleaner` — application-facing contract for Unicode cleanup
+- `UnicodeSanityAdapter` — adapts the third-party `unicode-sanity` package to the `TextCleaner` contract
 - `clean_unwanted_space()` — collapses repeated whitespace and removes unnecessary blank lines
-- `clean_text()` — runs the common text-cleaning pipeline
+- `clean_text()` — runs Unicode cleanup through the adapter, then whitespace cleanup
 - `clean_heading()` — cleans heading text while preserving heading level
 - `clean_section()` — cleans section text/headings while preserving DOM metadata
 - `remove_empty_sections()` — removes sections with no useful text or headings
+
+The adapter keeps `unicode-sanity` out of `normalize.py` so the normalization logic depends on our own `TextCleaner` contract rather than a specific third-party library.
+
+```text
+PageNormalizer
+      ↓
+TextCleaner
+      ↓
+UnicodeSanityAdapter
+      ↓
+unicode-sanity
+```
 
 `PageNormalizer.normalize()` cleans:
 
