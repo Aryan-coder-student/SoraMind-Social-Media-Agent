@@ -330,8 +330,10 @@ The caller owns the browser lifecycle, so Page Discovery does not start or close
 the shared browser.
 
 Use outermost `<section>` elements as the page boundary. Prefer outermost
-sections below `<main>` when a main element exists; otherwise, fall back to
-outermost sections across the document. Preserve DOM order and empty sections.
+sections below `<main>` when a main element exists. If `<main>` contains no
+sections, represent the main element as one factual section so client-rendered
+page content is not lost. If `<main>` does not exist, fall back to outermost
+sections across the document. Preserve DOM order and empty sections.
 
 Extract:
 

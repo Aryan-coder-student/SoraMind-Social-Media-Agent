@@ -75,7 +75,12 @@ class PageDiscovery(PageDiscoveryBase):
     async def _section_selector(self, page: Any) -> str:
         """Select outermost sections, preferring those inside main."""
         if await page.locator("main").count():
-            return "main section:not(section section)"
+            main_section_selector = "main section:not(section section)"
+
+            if await page.locator(main_section_selector).count():
+                return main_section_selector
+
+            return "main"
 
         return "section:not(section section)"
 
