@@ -29,6 +29,10 @@ class FakeLocator:
 
     async def get_attribute(self, name: str) -> str | None:
         assert name in {"content", "href"}
+
+        if self.element_count == 0:
+            raise TimeoutError("attribute lookup waited for a missing element")
+
         return self.attribute
 
     async def count(self) -> int:
@@ -75,10 +79,16 @@ class FakePage:
 
     def locator(self, selector: str) -> FakeLocator:
         if selector == 'meta[name="description"]':
-            return FakeLocator(attribute=self.meta_description)
+            return FakeLocator(
+                attribute=self.meta_description,
+                count=int(self.meta_description is not None),
+            )
 
         if selector == 'link[rel="canonical"]':
-            return FakeLocator(attribute=self.canonical_url)
+            return FakeLocator(
+                attribute=self.canonical_url,
+                count=int(self.canonical_url is not None),
+            )
 
         if selector == "main":
             return FakeLocator(count=int(self.has_main))

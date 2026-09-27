@@ -41,12 +41,16 @@ class PageDiscovery(PageDiscoveryBase):
             await self.browser.navigate(page, url)
 
             title = await page.title()
-            meta_description = await page.locator(
-                'meta[name="description"]'
-            ).get_attribute("content")
-            canonical_url = await page.locator(
-                'link[rel="canonical"]'
-            ).get_attribute("href")
+            meta_description = await self._optional_attribute(
+                page,
+                selector='meta[name="description"]',
+                attribute="content",
+            )
+            canonical_url = await self._optional_attribute(
+                page,
+                selector='link[rel="canonical"]',
+                attribute="href",
+            )
 
             section_selector = await self._section_selector(page)
             raw_sections: list[dict[str, Any]] = await page.locator(
@@ -73,3 +77,17 @@ class PageDiscovery(PageDiscoveryBase):
             return "main section:not(section section)"
 
         return "section:not(section section)"
+
+    async def _optional_attribute(
+        self,
+        page: Any,
+        selector: str,
+        attribute: str,
+    ) -> str | None:
+        """Read an attribute without waiting for an optional element."""
+        locator = page.locator(selector)
+
+        if not await locator.count():
+            return None
+
+        return await locator.get_attribute(attribute)
