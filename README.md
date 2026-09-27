@@ -11,3 +11,25 @@ The initial implementation is intentionally synchronous and focuses on:
 5. Persistence
 
 See [docs/phase-1-architecture.md](docs/phase-1-architecture.md) for the agreed architecture, responsibilities, and technology decisions.
+
+## Run with Docker
+
+The current runnable component discovers internal URLs with the Phase 1 crawler.
+
+```bash
+SEED_URL=https://example.com docker compose up --build
+```
+
+The crawl defaults to 10 pages, depth 1, and concurrency 5. Override those
+limits when needed:
+
+```bash
+SEED_URL=https://example.com MAX_PAGES=50 MAX_DEPTH=3 CONCURRENCY=8 docker compose up --build
+```
+
+You can also build and run the image directly:
+
+```bash
+docker build -t soramind-agent .
+docker run --rm --init --ipc=host soramind-agent https://example.com --max-pages 10 --max-depth 1
+```
