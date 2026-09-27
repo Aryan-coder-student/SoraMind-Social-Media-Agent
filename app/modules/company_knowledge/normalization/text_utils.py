@@ -11,11 +11,13 @@ def clean_unwanted_space(text: str) -> str:
         for line in text.splitlines()
     ]
 
-    return "\n".join(
+    cleaned_text = "\n".join(
         line
         for line in lines
         if line
     )
+
+    return cleaned_text
 
 
 def clean_text(text: str, text_cleaner: TextCleaner) -> str:
@@ -31,7 +33,7 @@ def clean_heading(
     text_cleaner: TextCleaner,
 ) -> Heading:
     """Clean heading text while preserving its DOM heading level."""
-    return heading.model_copy(
+    cleaned_heading = heading.model_copy(
         update={
             "text": clean_text(
                 heading.text,
@@ -39,6 +41,8 @@ def clean_heading(
             ),
         }
     )
+
+    return cleaned_heading
 
 
 def clean_section(
