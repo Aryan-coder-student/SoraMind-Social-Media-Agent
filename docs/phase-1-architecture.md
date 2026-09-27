@@ -300,32 +300,32 @@ PageKnowledge
 
 Normalization is deterministic, synchronous, and conservative.
 
-`NormalizerBase` owns the injected `TextCleaner`, the shared text/heading/section cleaning behavior, and the normalization contract. `PageNormalizer` provides only the page-level orchestration.
+`NormalizerBase` is a thin abstraction that defines only the `normalize(page)` contract. `PageNormalizer` owns the page-specific cleaning implementation and receives `TextCleaner` through constructor injection.
 
 The normalization pipeline includes:
 
 - `TextCleaner` — application-facing contract for Unicode cleanup
 - `UnicodeSanityAdapter` — adapts the third-party `unicode-sanity` package to the `TextCleaner` contract
-- `NormalizerBase.clean_text()` — uses the injected cleaner, then normalizes whitespace
-- `NormalizerBase.clean_heading()` — cleans heading text while preserving heading level
-- `NormalizerBase.clean_section()` — cleans section text/headings while preserving DOM metadata
+- `PageNormalizer.clean_text()` — uses the injected cleaner, then normalizes whitespace
+- `PageNormalizer.clean_heading()` — cleans heading text while preserving heading level
+- `PageNormalizer.clean_section()` — cleans section text/headings while preserving DOM metadata
 - `text_utils.clean_unwanted_space()` — pure whitespace cleanup
 - `text_utils.remove_empty_sections()` — pure empty-section filtering
 
 The adapter keeps `unicode-sanity` out of `normalize.py` so the normalization logic depends on our own `TextCleaner` contract rather than a specific third-party library.
 
-`NormalizerBase` requires a `TextCleaner` to be passed explicitly and stores it once. `PageNormalizer` inherits that constructor and reuses the base cleaning methods instead of passing the cleaner through helper functions.
+`PageNormalizer` requires a `TextCleaner` to be passed explicitly and stores it once. `NormalizerBase` stays independent of text-cleaning implementation details.
 
-`normalize.py` is kept focused on `PageNormalizer` orchestration. `NormalizerBase` owns cleaner-dependent behavior, while `text_utils.py` contains only cleaner-independent pure helpers.
+`normalize.py` owns the page-specific normalization behavior. `NormalizerBase` remains contract-only, while `text_utils.py` contains cleaner-independent pure helpers.
 
 ```text
 caller / composition layer
           ↓
 UnicodeSanityAdapter
           ↓
-NormalizerBase(TextCleaner)
+PageNormalizer(TextCleaner)
           ↓
-PageNormalizer
+NormalizerBase contract
           ↓
 text_utils.py
 ```
