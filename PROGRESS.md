@@ -6,7 +6,7 @@ This file tracks Phase 1 implementation progress for the SoraMind Social Media A
 
 ## Current status
 
-Completed and merged pull requests: **5**
+Completed and merged pull requests: **6**
 
 ### Merged PRs
 
@@ -17,6 +17,7 @@ Completed and merged pull requests: **5**
 | #3 | ✅ Merged | Phase 1 Pydantic models for crawl results, factual page structure, and semantic knowledge | 2026-09-26 |
 | #4 | ✅ Merged | Crawl URL preprocessing and validation, including relative URL resolution, anchor removal, trailing slash normalization, same-domain checks, and static asset filtering | 2026-09-26 |
 | #5 | ✅ Merged | Deterministic page normalization, TextCleaner abstraction, unicode-sanity adapter, text utilities, and PageNormalizer implementation | 2026-09-27 |
+| #6 | ✅ Merged | BFS website crawler, strategy-independent link extraction, controlled browser concurrency, URL deduplication, crawl limits, failure isolation, and crawl tests | 2026-09-27 |
 
 ## Completed Phase 1 components
 
@@ -52,6 +53,21 @@ Completed and merged pull requests: **5**
 - [x] Static asset filtering
 - [x] Shared skipped-extension settings
 
+### Crawling
+
+- [x] CrawlStrategy contract
+- [x] BFS crawl implementation
+- [x] Level-by-level breadth-first traversal
+- [x] Controlled browser concurrency with `asyncio.Semaphore`
+- [x] Concurrent level processing with `asyncio.gather`
+- [x] URL deduplication using a `seen` set
+- [x] Duplicate discovery prevention when URLs are queued
+- [x] `max_pages` and `max_depth` limits
+- [x] Page failure isolation
+- [x] LinkExtractor abstraction
+- [x] BrowserLinkExtractor implementation
+- [x] Crawl/validation/link-extractor tests
+
 ### Normalization
 
 - [x] Normalizer contract
@@ -65,8 +81,6 @@ Completed and merged pull requests: **5**
 
 ## Remaining Phase 1 work
 
-- [ ] BFS crawl implementation
-- [ ] Controlled crawl concurrency and deduplication
 - [ ] Page discovery / DOM extraction implementation
 - [ ] Structured LLM extraction implementation
 - [ ] LLM provider registry implementation
@@ -104,7 +118,7 @@ Seed URL
    ↓
 URL preprocessing / validation   ✅
    ↓
-BFS crawl                        ⏳
+BFS crawl                        ✅
    ↓
 Browser infrastructure          ✅
    ↓
@@ -116,6 +130,18 @@ LLM extraction                  ⏳
    ↓
 Repository / SQLite             ⏳
 ```
+
+## Development workflow
+
+New implementation work follows TDD:
+
+```text
+RED      → write the failing test first
+GREEN    → implement only what is needed to pass
+REFACTOR → improve the design while keeping tests green
+```
+
+Tests should be added before implementation changes for new behavior and regressions.
 
 ## Tracking rule
 
