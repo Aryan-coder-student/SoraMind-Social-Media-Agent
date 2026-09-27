@@ -295,15 +295,30 @@ PageKnowledge
 
 ## 5. Normalization
 
-Normalization is deterministic and conservative:
+Normalization is deterministic, synchronous, and conservative.
 
-- whitespace cleanup
-- newline normalization
-- URL normalization where appropriate
-- empty-section removal
-- obvious presentation-noise removal
+`NormalizerBase` defines the normalization contract, and `PageNormalizer` provides the Phase 1 implementation.
 
-It must not add semantic interpretation.
+The normalization pipeline includes:
+
+- `clean_hidden_characters()` — removes zero-width/BOM characters and converts non-breaking spaces to normal spaces
+- `clean_unwanted_space()` — collapses repeated whitespace and removes unnecessary blank lines
+- `clean_text()` — runs the common text-cleaning pipeline
+- `clean_heading()` — cleans heading text while preserving heading level
+- `clean_section()` — cleans section text/headings while preserving DOM metadata
+- `remove_empty_sections()` — removes sections with no useful text or headings
+
+`PageNormalizer.normalize()` cleans:
+
+- page title
+- meta description
+- section headings
+- section text
+- empty sections
+
+It does not modify page URLs, canonical URLs, section IDs/classes, child counts, or add semantic interpretation.
+
+Normalization stays synchronous because it performs only local Python data/string cleanup and does not use browser, network, database, or LLM calls.
 
 ## 6. LLM extraction
 
