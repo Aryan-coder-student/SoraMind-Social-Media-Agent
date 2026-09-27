@@ -2,10 +2,7 @@
 
 from app.modules.company_knowledge.models.page import PageDocument
 from app.modules.company_knowledge.normalization.base import NormalizerBase
-from app.modules.company_knowledge.normalization.text_cleaner import TextCleaner
 from app.modules.company_knowledge.normalization.text_utils import (
-    clean_section,
-    clean_text,
     remove_empty_sections,
 )
 
@@ -13,38 +10,30 @@ from app.modules.company_knowledge.normalization.text_utils import (
 class PageNormalizer(NormalizerBase):
     """Normalize factual webpage content before LLM extraction."""
 
-    def __init__(self, text_cleaner: TextCleaner) -> None:
-        self.text_cleaner = text_cleaner
-
     def normalize(self, page: PageDocument) -> PageDocument:
         """Return a cleaned copy of the page document."""
         sections = [
-            clean_section(
-                section,
-                self.text_cleaner,
-            )
+            self.clean_section(section)
             for section in page.sections
         ]
         sections = remove_empty_sections(sections)
 
+        title = (
+            self.clean_text(page.title)
+            if page.title is not None
+            else None
+        )
+
+        meta_description = (
+            self.clean_text(page.meta_description)
+            if page.meta_description is not None
+            else None
+        )
+
         normalized_page = page.model_copy(
             update={
-                "title": (
-                    clean_text(
-                        page.title,
-                        self.text_cleaner,
-                    )
-                    if page.title is not None
-                    else None
-                ),
-                "meta_description": (
-                    clean_text(
-                        page.meta_description,
-                        self.text_cleaner,
-                    )
-                    if page.meta_description is not None
-                    else None
-                ),
+                "title": title,
+                "meta_description": meta_description,
                 "sections": sections,
             }
         )
