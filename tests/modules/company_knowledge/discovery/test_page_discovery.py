@@ -61,6 +61,7 @@ class FakePage:
         canonical_url: str | None = "https://example.com/canonical",
         has_main: bool = True,
         sections: list[dict[str, Any]] | None = None,
+        main_section: dict[str, Any] | None = None,
         hydrated_sections: list[dict[str, Any]] | None = None,
         evaluation_error: Exception | None = None,
     ) -> None:
@@ -70,6 +71,7 @@ class FakePage:
         self.canonical_url = canonical_url
         self.has_main = has_main
         self.sections = sections or []
+        self.main_section = main_section
         self.hydrated_sections = hydrated_sections
         self.evaluation_error = evaluation_error
         self.load_state_calls: list[str] = []
@@ -100,7 +102,12 @@ class FakePage:
             )
 
         if selector == "main":
-            return FakeLocator(count=int(self.has_main))
+            return FakeLocator(
+                count=int(self.has_main),
+                sections=[self.main_section] if self.main_section else [],
+                evaluation_error=self.evaluation_error,
+                page=self,
+            )
 
         expected_section_selector = (
             "main section:not(section section)"
@@ -111,6 +118,7 @@ class FakePage:
         if selector == expected_section_selector:
             self.section_selector = selector
             return FakeLocator(
+                count=len(self.sections),
                 sections=self.sections,
                 evaluation_error=self.evaluation_error,
                 page=self,
@@ -290,6 +298,36 @@ async def test_falls_back_to_outermost_document_sections_without_main() -> None:
 
     assert [item.id for item in document.sections] == ["fallback"]
     assert page.section_selector == "section:not(section section)"
+
+
+@pytest.mark.asyncio
+async def test_uses_main_as_one_section_when_main_has_no_sections() -> None:
+    page = FakePage(
+        sections=[],
+        main_section=section(
+            element_id=None,
+            classes=["flex-1", "pt-16"],
+            headings=[
+                {"level": 1, "text": "Contact"},
+                {"level": 2, "text": "Get in touch"},
+            ],
+            text="Contact us",
+            child_count=1,
+        ),
+    )
+
+    document = await PageDiscovery(FakeBrowser(page)).extract(
+        "https://example.com/contact"
+    )
+
+    assert len(document.sections) == 1
+    assert document.sections[0].classes == ["flex-1", "pt-16"]
+    assert [heading.text for heading in document.sections[0].headings] == [
+        "Contact",
+        "Get in touch",
+    ]
+    assert document.sections[0].text == "Contact us"
+    assert document.sections[0].child_count == 1
 
 
 @pytest.mark.asyncio
