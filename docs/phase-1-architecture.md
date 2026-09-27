@@ -186,11 +186,15 @@ The crawler answers only:
 
 > Which internal pages belong to the company website?
 
-`CrawlStrategy` is the abstraction.
+`CrawlStrategy` is a thin contract with one operation:
+
+```python
+async def discover(seed_url: str) -> CrawlResult
+```
 
 Current implementation:
 
-- `BFSCrawlStrategy`
+- `BFSCrawlStrategy` — bounded breadth-first traversal using the shared browser abstraction
 
 Possible later implementations:
 
@@ -216,9 +220,24 @@ Current Phase 1 decisions:
 - no tracking-parameter normalization
 - no explicit HTTP/HTTPS-only validation
 - PDF is not currently treated as a skipped static asset
+- root URLs are normalized so `https://example.com` and `https://example.com/` are treated consistently
 - deduplication belongs to the BFS crawl logic, not URL preprocessing
 
-BFS must have safety limits such as max pages, max depth, timeout, and bounded concurrency.
+`BFSCrawlStrategy`:
+
+- starts from the normalized seed URL at depth 0
+- traverses URLs level by level to preserve BFS ordering
+- extracts `a[href]` links from rendered pages
+- preprocesses and validates links before queueing them
+- adds URLs to the `seen` set when they are queued so duplicate discoveries are not queued twice
+- enforces `max_pages` and `max_depth`
+- uses `asyncio.Semaphore` to bound concurrent browser pages
+- uses `asyncio.gather(..., return_exceptions=True)` so one page failure does not abort the entire crawl
+- records the seed URL in `CrawlResult.urls`
+- counts successfully rendered pages in `visited_count`
+- counts rejected duplicate/non-crawlable links and page failures in `skipped_count`
+
+Browser lifecycle remains outside the crawl strategy. The caller starts and closes the shared browser so the same browser can also be reused by Page Discovery.
 
 ## 2. Browser infrastructure
 
