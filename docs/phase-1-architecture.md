@@ -263,6 +263,32 @@ BrowserBase
 
 A later crawl strategy such as a sitemap strategy does not need to depend on browser-based link extraction.
 
+## Tests
+
+The BFS crawler is covered by focused unit tests:
+
+```text
+tests/modules/company_knowledge/crawl/
+├── test_bfs.py
+├── test_link_extractor.py
+└── test_validation.py
+```
+
+Coverage includes:
+
+- breadth-first ordering
+- duplicate URL handling
+- `max_pages`
+- `max_depth`
+- per-page extraction failure handling
+- invalid crawl limits
+- browser link extraction and page cleanup
+- bounded browser extraction concurrency
+- same-domain validation
+- `www.` host normalization
+- external URL rejection
+- static asset filtering
+
 ## 2. Browser infrastructure
 
 Playwright should be initialized once and shared.
