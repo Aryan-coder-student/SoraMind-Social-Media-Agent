@@ -27,7 +27,7 @@ class PageNormalizer(NormalizerBase):
         ]
         sections = remove_empty_sections(sections)
 
-        return page.model_copy(
+        normalized_page = page.model_copy(
             update={
                 "title": (
                     clean_text(
@@ -48,3 +48,5 @@ class PageNormalizer(NormalizerBase):
                 "sections": sections,
             }
         )
+
+        return normalized_page
