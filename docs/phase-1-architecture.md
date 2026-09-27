@@ -38,6 +38,7 @@ The scheduler, Celery workers, website-change events, Media Intelligence, and so
 - pytest / pytest-asyncio
 - Ruff
 - uv
+- unicode-sanity for Unicode text cleanup behind an adapter
 
 Not required in Phase 1:
 
@@ -93,7 +94,9 @@ app/
         │   └── page_discovery.py
         ├── normalization/
         │   ├── base.py
-        │   └── normalize.py
+        │   ├── normalize.py
+        │   ├── text_cleaner.py
+        │   └── text_utils.py
         ├── extraction/
         │   ├── base.py
         │   └── extractor.py
@@ -295,15 +298,49 @@ PageKnowledge
 
 ## 5. Normalization
 
-Normalization is deterministic and conservative:
+Normalization is deterministic, synchronous, and conservative.
 
-- whitespace cleanup
-- newline normalization
-- URL normalization where appropriate
-- empty-section removal
-- obvious presentation-noise removal
+`NormalizerBase` is a thin abstraction that defines only the `normalize(page)` contract. `PageNormalizer` owns the page-specific cleaning implementation and receives `TextCleaner` through constructor injection.
 
-It must not add semantic interpretation.
+The normalization pipeline includes:
+
+- `TextCleaner` — application-facing contract for Unicode cleanup
+- `UnicodeSanityAdapter` — adapts the third-party `unicode-sanity` package to the `TextCleaner` contract
+- `PageNormalizer.clean_text()` — uses the injected cleaner, then normalizes whitespace
+- `PageNormalizer.clean_heading()` — cleans heading text while preserving heading level
+- `PageNormalizer.clean_section()` — cleans section text/headings while preserving DOM metadata
+- `text_utils.clean_unwanted_space()` — pure whitespace cleanup
+- `text_utils.remove_empty_sections()` — pure empty-section filtering
+
+The adapter keeps `unicode-sanity` out of `normalize.py` so the normalization logic depends on our own `TextCleaner` contract rather than a specific third-party library.
+
+`PageNormalizer` requires a `TextCleaner` to be passed explicitly and stores it once. `NormalizerBase` stays independent of text-cleaning implementation details.
+
+`normalize.py` owns the page-specific normalization behavior. `NormalizerBase` remains contract-only, while `text_utils.py` contains cleaner-independent pure helpers.
+
+```text
+caller / composition layer
+          ↓
+UnicodeSanityAdapter
+          ↓
+PageNormalizer(TextCleaner)
+          ↓
+NormalizerBase contract
+          ↓
+text_utils.py
+```
+
+`PageNormalizer.normalize()` cleans:
+
+- page title
+- meta description
+- section headings
+- section text
+- empty sections
+
+It does not modify page URLs, canonical URLs, section IDs/classes, child counts, or add semantic interpretation.
+
+Normalization stays synchronous because it performs only local Python data/string cleanup and does not use browser, network, database, or LLM calls.
 
 ## 6. LLM extraction
 
