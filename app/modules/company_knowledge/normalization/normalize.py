@@ -2,10 +2,7 @@
 
 from app.modules.company_knowledge.models.page import PageDocument
 from app.modules.company_knowledge.normalization.base import NormalizerBase
-from app.modules.company_knowledge.normalization.text_cleaner import (
-    TextCleaner,
-    UnicodeSanityAdapter,
-)
+from app.modules.company_knowledge.normalization.text_cleaner import TextCleaner
 from app.modules.company_knowledge.normalization.text_utils import (
     clean_section,
     clean_text,
@@ -16,15 +13,8 @@ from app.modules.company_knowledge.normalization.text_utils import (
 class PageNormalizer(NormalizerBase):
     """Normalize factual webpage content before LLM extraction."""
 
-    def __init__(
-        self,
-        text_cleaner: TextCleaner | None = None,
-    ) -> None:
-        self.text_cleaner = (
-            text_cleaner
-            if text_cleaner is not None
-            else UnicodeSanityAdapter()
-        )
+    def __init__(self, text_cleaner: TextCleaner) -> None:
+        self.text_cleaner = text_cleaner
 
     def normalize(self, page: PageDocument) -> PageDocument:
         """Return a cleaned copy of the page document."""
