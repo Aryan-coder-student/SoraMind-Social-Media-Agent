@@ -61,6 +61,7 @@ class FakePage:
         canonical_url: str | None = "https://example.com/canonical",
         has_main: bool = True,
         sections: list[dict[str, Any]] | None = None,
+        hydrated_sections: list[dict[str, Any]] | None = None,
         evaluation_error: Exception | None = None,
     ) -> None:
         self.url = url
@@ -69,13 +70,21 @@ class FakePage:
         self.canonical_url = canonical_url
         self.has_main = has_main
         self.sections = sections or []
+        self.hydrated_sections = hydrated_sections
         self.evaluation_error = evaluation_error
+        self.load_state_calls: list[str] = []
         self.section_evaluation_count = 0
         self.section_evaluation_script: str | None = None
         self.section_selector: str | None = None
 
     async def title(self) -> str:
         return self.title_value
+
+    async def wait_for_load_state(self, state: str) -> None:
+        self.load_state_calls.append(state)
+
+        if self.hydrated_sections is not None:
+            self.sections = self.hydrated_sections
 
     def locator(self, selector: str) -> FakeLocator:
         if selector == 'meta[name="description"]':
@@ -251,6 +260,21 @@ async def test_uses_outermost_sections_under_main() -> None:
     assert [item.id for item in document.sections] == ["platform", "pricing"]
     assert page.section_selector == "main section:not(section section)"
     assert page.section_evaluation_count == 1
+
+
+@pytest.mark.asyncio
+async def test_waits_for_client_rendering_before_extracting_sections() -> None:
+    page = FakePage(
+        sections=[],
+        hydrated_sections=[section(element_id="rendered")],
+    )
+
+    document = await PageDiscovery(FakeBrowser(page)).extract(
+        "https://example.com"
+    )
+
+    assert [item.id for item in document.sections] == ["rendered"]
+    assert page.load_state_calls == ["networkidle"]
 
 
 @pytest.mark.asyncio

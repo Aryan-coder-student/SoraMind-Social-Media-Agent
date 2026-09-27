@@ -39,6 +39,7 @@ class PageDiscovery(PageDiscoveryBase):
 
         try:
             await self.browser.navigate(page, url)
+            await page.wait_for_load_state("networkidle")
 
             title = await page.title()
             meta_description = await self._optional_attribute(
