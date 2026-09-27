@@ -1,5 +1,7 @@
 """Tests for the bounded breadth-first crawl strategy."""
 
+import asyncio
+
 import pytest
 
 from app.modules.company_knowledge.crawl.bfs import BFSCrawlStrategy
@@ -22,6 +24,31 @@ class FakeLinkExtractor(LinkExtractor):
             raise result
 
         return result
+
+
+class TrackingLinkExtractor(LinkExtractor):
+    """Track concurrent crawl-level extraction calls."""
+
+    def __init__(
+        self,
+        links_by_url: dict[str, list[str]],
+    ) -> None:
+        self.links_by_url = links_by_url
+        self.active = 0
+        self.max_active = 0
+
+    async def extract(self, url: str) -> list[str]:
+        self.active += 1
+        self.max_active = max(
+            self.max_active,
+            self.active,
+        )
+
+        await asyncio.sleep(0.01)
+
+        self.active -= 1
+
+        return self.links_by_url.get(url, [])
 
 
 @pytest.mark.asyncio
@@ -144,6 +171,60 @@ async def test_page_failure_does_not_stop_crawl() -> None:
     ]
 
 
+@pytest.mark.asyncio
+async def test_limits_crawl_level_concurrency() -> None:
+    extractor = TrackingLinkExtractor(
+        {
+            "https://example.com/": [
+                "/one",
+                "/two",
+                "/three",
+                "/four",
+            ],
+            "https://example.com/one": [],
+            "https://example.com/two": [],
+            "https://example.com/three": [],
+            "https://example.com/four": [],
+        }
+    )
+    crawler = BFSCrawlStrategy(
+        link_extractor=extractor,
+        max_pages=10,
+        max_depth=1,
+        concurrency=2,
+    )
+
+    await crawler.discover("https://example.com/")
+
+    assert extractor.max_active == 2
+
+
+@pytest.mark.asyncio
+async def test_deduplicates_www_and_non_www_urls() -> None:
+    extractor = FakeLinkExtractor(
+        {
+            "https://example.com/": [
+                "https://example.com/about",
+                "https://www.example.com/about",
+            ],
+            "https://example.com/about": [],
+        }
+    )
+    crawler = BFSCrawlStrategy(
+        link_extractor=extractor,
+        max_pages=10,
+        max_depth=1,
+    )
+
+    result = await crawler.discover("https://example.com/")
+
+    assert [str(item.url) for item in result.urls] == [
+        "https://example.com/",
+        "https://example.com/about",
+    ]
+    assert result.skipped_count == 1
+
+
 def test_rejects_invalid_limits() -> None:
     extractor = FakeLinkExtractor({})
 
@@ -157,4 +238,10 @@ def test_rejects_invalid_limits() -> None:
         BFSCrawlStrategy(
             link_extractor=extractor,
             max_depth=-1,
+        )
+
+    with pytest.raises(ValueError, match="concurrency"):
+        BFSCrawlStrategy(
+            link_extractor=extractor,
+            concurrency=0,
         )
