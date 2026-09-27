@@ -6,7 +6,7 @@ This file tracks Phase 1 implementation progress for the SoraMind Social Media A
 
 ## Current status
 
-Completed and merged pull requests: **9**
+Completed and merged pull requests: **10**
 
 ### Merged PRs
 
@@ -21,6 +21,7 @@ Completed and merged pull requests: **9**
 | #7 | ✅ Merged | Crawl-level concurrency hardening and canonical URL deduplication across `www.` / non-`www.` host variants | 2026-09-27 |
 | #8 | ✅ Merged | Docker runtime, Compose setup, pinned dependencies, and executable crawler CLI | 2026-09-27 |
 | #9 | ✅ Merged | Factual rendered-page DOM discovery using BrowserBase with PageDocument/PageSection extraction and tests | 2026-09-27 |
+| #11 | ✅ Merged | Page Discovery readiness hardening: wait for rendered React content, safe optional metadata lookup, hydration coverage, and live crawl validation | 2026-09-27 |
 
 ## Completed Phase 1 components
 
@@ -80,7 +81,10 @@ Completed and merged pull requests: **9**
 - [x] Outermost section extraction
 - [x] Section id/classes/headings/text/child-count extraction
 - [x] Page cleanup and failure handling
+- [x] Render-readiness wait for hydrated client content
+- [x] Safe optional metadata lookup without timeout on missing elements
 - [x] Page discovery tests
+- [x] Live bounded SoraMinds crawl validation with 10 pages, 73 sections, and 0 page errors
 
 ### Runtime
 
