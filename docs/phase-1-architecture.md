@@ -232,8 +232,10 @@ Current Phase 1 decisions:
 - traverses URLs level by level to preserve BFS ordering
 - depends on the `LinkExtractor` abstraction rather than Playwright/browser details
 - preprocesses and validates links before queueing them
-- adds URLs to the `seen` set when they are queued so duplicate discoveries are not queued twice
+- builds canonical deduplication keys that treat `www.example.com` and `example.com` as the same host
+- adds deduplication keys to the `seen` set when URLs are queued so duplicate discoveries are not queued twice
 - enforces `max_pages` and `max_depth`
+- uses a crawl-level `asyncio.Semaphore` so only the configured number of link-extraction tasks run at once
 - uses `asyncio.gather(..., return_exceptions=True)` so one page failure does not abort the entire crawl
 - records the seed URL in `CrawlResult.urls`
 - counts successfully rendered pages in `visited_count`
@@ -284,6 +286,8 @@ Coverage includes:
 - invalid crawl limits
 - browser link extraction and page cleanup
 - bounded browser extraction concurrency
+- bounded crawl-level concurrency
+- deduplication across `www.` and non-`www.` host variants
 - same-domain validation
 - `www.` host normalization
 - external URL rejection

@@ -1,11 +1,15 @@
 """Bounded breadth-first crawl strategy."""
 
 import asyncio
+from urllib.parse import urlsplit, urlunsplit
 
 from app.modules.company_knowledge.crawl.base import CrawlStrategy
 from app.modules.company_knowledge.crawl.link_extractor import LinkExtractor
 from app.modules.company_knowledge.crawl.preprocess_url import preprocess_url
-from app.modules.company_knowledge.crawl.validation import is_crawlable_url
+from app.modules.company_knowledge.crawl.validation import (
+    is_crawlable_url,
+    normalize_host,
+)
 from app.modules.company_knowledge.models.crawl import CrawlResult, DiscoveredURL
 
 
@@ -17,6 +21,7 @@ class BFSCrawlStrategy(CrawlStrategy):
         link_extractor: LinkExtractor,
         max_pages: int = 100,
         max_depth: int = 5,
+        concurrency: int = 5,
     ) -> None:
         if max_pages < 1:
             raise ValueError("max_pages must be at least 1.")
@@ -24,9 +29,38 @@ class BFSCrawlStrategy(CrawlStrategy):
         if max_depth < 0:
             raise ValueError("max_depth cannot be negative.")
 
+        if concurrency < 1:
+            raise ValueError("concurrency must be at least 1.")
+
         self.link_extractor = link_extractor
         self.max_pages = max_pages
         self.max_depth = max_depth
+        self.semaphore = asyncio.Semaphore(concurrency)
+
+    async def _extract_links(self, url: str) -> list[str]:
+        """Run one link-extraction task under the crawl concurrency limit."""
+        async with self.semaphore:
+            return await self.link_extractor.extract(url)
+
+    def _dedupe_key(self, url: str) -> str:
+        """Build a stable key for equivalent crawl URLs."""
+        parsed_url = urlsplit(url)
+        host = normalize_host(parsed_url.hostname or "")
+
+        netloc = host
+
+        if parsed_url.port is not None:
+            netloc = f"{host}:{parsed_url.port}"
+
+        return urlunsplit(
+            (
+                parsed_url.scheme.lower(),
+                netloc,
+                parsed_url.path,
+                parsed_url.query,
+                "",
+            )
+        )
 
     async def discover(self, seed_url: str) -> CrawlResult:
         """Discover internal URLs level by level from the seed URL."""
@@ -40,7 +74,9 @@ class BFSCrawlStrategy(CrawlStrategy):
 
         discovered_urls = [seed]
         current_level = [seed]
-        seen = {str(seed.url)}
+        seen = {
+            self._dedupe_key(str(seed.url)),
+        }
 
         visited_count = 0
         skipped_count = 0
@@ -48,7 +84,7 @@ class BFSCrawlStrategy(CrawlStrategy):
         while current_level:
             results = await asyncio.gather(
                 *[
-                    self.link_extractor.extract(str(item.url))
+                    self._extract_links(str(item.url))
                     for item in current_level
                 ],
                 return_exceptions=True,
@@ -81,7 +117,9 @@ class BFSCrawlStrategy(CrawlStrategy):
                         skipped_count += 1
                         continue
 
-                    if url in seen:
+                    dedupe_key = self._dedupe_key(url)
+
+                    if dedupe_key in seen:
                         skipped_count += 1
                         continue
 
@@ -95,7 +133,7 @@ class BFSCrawlStrategy(CrawlStrategy):
                         discovered_from=item.url,
                     )
 
-                    seen.add(url)
+                    seen.add(dedupe_key)
                     discovered_urls.append(discovered_url)
                     next_level.append(discovered_url)
 
