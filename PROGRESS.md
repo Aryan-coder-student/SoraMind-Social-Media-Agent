@@ -1,12 +1,12 @@
 # Project Progress
 
-Last updated: 2026-09-27
+Last updated: 2026-09-28
 
 This file tracks Phase 1 implementation progress for the SoraMind Social Media Agent.
 
 ## Current status
 
-Completed and merged pull requests: **6**
+Completed and merged pull requests: **9**
 
 ### Merged PRs
 
@@ -18,6 +18,9 @@ Completed and merged pull requests: **6**
 | #4 | ✅ Merged | Crawl URL preprocessing and validation, including relative URL resolution, anchor removal, trailing slash normalization, same-domain checks, and static asset filtering | 2026-09-26 |
 | #5 | ✅ Merged | Deterministic page normalization, TextCleaner abstraction, unicode-sanity adapter, text utilities, and PageNormalizer implementation | 2026-09-27 |
 | #6 | ✅ Merged | BFS website crawler, strategy-independent link extraction, controlled browser concurrency, URL deduplication, crawl limits, failure isolation, and crawl tests | 2026-09-27 |
+| #7 | ✅ Merged | Crawl-level concurrency hardening and canonical URL deduplication across `www.` / non-`www.` host variants | 2026-09-27 |
+| #8 | ✅ Merged | Docker runtime, Compose setup, pinned dependencies, and executable crawler CLI | 2026-09-27 |
+| #9 | ✅ Merged | Factual rendered-page DOM discovery using BrowserBase with PageDocument/PageSection extraction and tests | 2026-09-27 |
 
 ## Completed Phase 1 components
 
@@ -68,6 +71,25 @@ Completed and merged pull requests: **6**
 - [x] BrowserLinkExtractor implementation
 - [x] Crawl/validation/link-extractor tests
 
+### Page discovery
+
+- [x] PageDiscovery contract
+- [x] Shared BrowserBase integration
+- [x] Final/current URL extraction
+- [x] Title/meta/canonical extraction
+- [x] Outermost section extraction
+- [x] Section id/classes/headings/text/child-count extraction
+- [x] Page cleanup and failure handling
+- [x] Page discovery tests
+
+### Runtime
+
+- [x] requirements.txt dependency manifest
+- [x] Playwright/Pydantic/unicode-sanity pinned dependencies
+- [x] Dockerfile
+- [x] Docker Compose runtime
+- [x] Executable crawler CLI
+
 ### Normalization
 
 - [x] Normalizer contract
@@ -81,15 +103,12 @@ Completed and merged pull requests: **6**
 
 ## Remaining Phase 1 work
 
-- [ ] Page discovery / DOM extraction implementation
 - [ ] Structured LLM extraction implementation
 - [ ] LLM provider registry implementation
 - [ ] Repository implementation
 - [ ] SQLite operations
 - [ ] Database connection and schema implementation
 - [ ] CompanyKnowledgeService orchestration
-- [ ] Dependency manifest / package management setup
-- [ ] Add `unicode-sanity` to project dependencies
 - [ ] Tests for implemented components
 - [ ] End-to-end Phase 1 crawl → normalize → extract → persist flow
 
@@ -122,7 +141,7 @@ BFS crawl                        ✅
    ↓
 Browser infrastructure          ✅
    ↓
-Page discovery                  ⏳
+Page discovery                  ✅
    ↓
 Normalization                   ✅
    ↓
