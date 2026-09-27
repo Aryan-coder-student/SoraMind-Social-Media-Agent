@@ -300,31 +300,32 @@ PageKnowledge
 
 Normalization is deterministic, synchronous, and conservative.
 
-`NormalizerBase` defines the normalization contract, and `PageNormalizer` provides the Phase 1 implementation.
+`NormalizerBase` owns the injected `TextCleaner`, the shared text/heading/section cleaning behavior, and the normalization contract. `PageNormalizer` provides only the page-level orchestration.
 
 The normalization pipeline includes:
 
 - `TextCleaner` — application-facing contract for Unicode cleanup
 - `UnicodeSanityAdapter` — adapts the third-party `unicode-sanity` package to the `TextCleaner` contract
-- `text_utils.py` — owns reusable normalization helper functions
-- `clean_unwanted_space()` — collapses repeated whitespace and removes unnecessary blank lines
-- `clean_text()` — runs Unicode cleanup through the adapter, then whitespace cleanup
-- `clean_heading()` — cleans heading text while preserving heading level
-- `clean_section()` — cleans section text/headings while preserving DOM metadata
-- `remove_empty_sections()` — removes sections with no useful text or headings
+- `NormalizerBase.clean_text()` — uses the injected cleaner, then normalizes whitespace
+- `NormalizerBase.clean_heading()` — cleans heading text while preserving heading level
+- `NormalizerBase.clean_section()` — cleans section text/headings while preserving DOM metadata
+- `text_utils.clean_unwanted_space()` — pure whitespace cleanup
+- `text_utils.remove_empty_sections()` — pure empty-section filtering
 
 The adapter keeps `unicode-sanity` out of `normalize.py` so the normalization logic depends on our own `TextCleaner` contract rather than a specific third-party library.
 
-`PageNormalizer` requires a `TextCleaner` to be passed explicitly. It does not create a default adapter internally. The caller/composition layer is responsible for creating `UnicodeSanityAdapter` and injecting it.
+`NormalizerBase` requires a `TextCleaner` to be passed explicitly and stores it once. `PageNormalizer` inherits that constructor and reuses the base cleaning methods instead of passing the cleaner through helper functions.
 
-`normalize.py` is kept focused on `PageNormalizer` orchestration, while `text_utils.py` owns the reusable cleaning operations.
+`normalize.py` is kept focused on `PageNormalizer` orchestration. `NormalizerBase` owns cleaner-dependent behavior, while `text_utils.py` contains only cleaner-independent pure helpers.
 
 ```text
 caller / composition layer
           ↓
 UnicodeSanityAdapter
           ↓
-PageNormalizer(TextCleaner)
+NormalizerBase(TextCleaner)
+          ↓
+PageNormalizer
           ↓
 text_utils.py
 ```
