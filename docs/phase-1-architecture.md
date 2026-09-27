@@ -87,6 +87,7 @@ app/
         ├── crawl/
         │   ├── base.py
         │   ├── bfs.py
+        │   ├── link_extractor.py
         │   ├── preprocess_url.py
         │   └── validation.py
         ├── discovery/
@@ -186,11 +187,17 @@ The crawler answers only:
 
 > Which internal pages belong to the company website?
 
-`CrawlStrategy` is the abstraction.
+`CrawlStrategy` is a thin contract with one operation:
+
+```python
+async def discover(seed_url: str) -> CrawlResult
+```
 
 Current implementation:
 
-- `BFSCrawlStrategy`
+- `BFSCrawlStrategy` — bounded breadth-first traversal
+- `LinkExtractor` — strategy-independent contract for extracting links from one URL
+- `BrowserLinkExtractor` — rendered-page implementation using the shared browser abstraction
 
 Possible later implementations:
 
@@ -216,18 +223,82 @@ Current Phase 1 decisions:
 - no tracking-parameter normalization
 - no explicit HTTP/HTTPS-only validation
 - PDF is not currently treated as a skipped static asset
+- root URLs are normalized so `https://example.com` and `https://example.com/` are treated consistently
 - deduplication belongs to the BFS crawl logic, not URL preprocessing
 
-BFS must have safety limits such as max pages, max depth, timeout, and bounded concurrency.
+`BFSCrawlStrategy`:
+
+- starts from the normalized seed URL at depth 0
+- traverses URLs level by level to preserve BFS ordering
+- depends on the `LinkExtractor` abstraction rather than Playwright/browser details
+- preprocesses and validates links before queueing them
+- adds URLs to the `seen` set when they are queued so duplicate discoveries are not queued twice
+- enforces `max_pages` and `max_depth`
+- uses `asyncio.gather(..., return_exceptions=True)` so one page failure does not abort the entire crawl
+- records the seed URL in `CrawlResult.urls`
+- counts successfully rendered pages in `visited_count`
+- counts rejected duplicate/non-crawlable links and page failures in `skipped_count`
+
+`BrowserLinkExtractor`:
+
+- opens one browser page/tab per extraction
+- navigates through the shared `BrowserBase`
+- extracts rendered `a[href]` links
+- closes the page in `finally`
+- owns the `asyncio.Semaphore` that limits concurrent browser-page extraction
+
+Browser lifecycle remains outside both the crawl strategy and link extractor. The caller starts and closes the shared browser so the same browser can also be reused by Page Discovery.
+
+The separation keeps traversal independent from link extraction:
+
+```text
+BFSCrawlStrategy
+      ↓
+LinkExtractor
+      ↑
+BrowserLinkExtractor
+      ↓
+BrowserBase
+```
+
+A later crawl strategy such as a sitemap strategy does not need to depend on browser-based link extraction.
+
+## Tests
+
+The BFS crawler is covered by focused unit tests:
+
+```text
+tests/modules/company_knowledge/crawl/
+├── test_bfs.py
+├── test_link_extractor.py
+└── test_validation.py
+```
+
+Coverage includes:
+
+- breadth-first ordering
+- duplicate URL handling
+- `max_pages`
+- `max_depth`
+- per-page extraction failure handling
+- invalid crawl limits
+- browser link extraction and page cleanup
+- bounded browser extraction concurrency
+- same-domain validation
+- `www.` host normalization
+- external URL rejection
+- static asset filtering
 
 ## 2. Browser infrastructure
 
 Playwright should be initialized once and shared.
 
 ```text
-BFSCrawlStrategy ──┐
-                   ├── Browser interface ──> Playwright implementation
-PageDiscovery ─────┘
+BFSCrawlStrategy ──> LinkExtractor
+                         ↑
+                 BrowserLinkExtractor ──> Browser interface ──> Playwright implementation
+
+PageDiscovery ──────────────────────────> Browser interface
 ```
 
 Use the async Playwright API. Do not launch a fresh browser process for every URL.
