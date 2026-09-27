@@ -6,15 +6,10 @@ from app.modules.company_knowledge.models.page import (
     PageSection,
 )
 from app.modules.company_knowledge.normalization.base import NormalizerBase
-
-
-def clean_hidden_characters(text: str) -> str:
-    """Remove hidden characters that add noise to extracted text."""
-    return (
-        text.replace("\u200b", "")
-        .replace("\ufeff", "")
-        .replace("\xa0", " ")
-    )
+from app.modules.company_knowledge.normalization.text_cleaner import (
+    TextCleaner,
+    UnicodeSanityAdapter,
+)
 
 
 def clean_unwanted_space(text: str) -> str:
@@ -31,27 +26,36 @@ def clean_unwanted_space(text: str) -> str:
     )
 
 
-def clean_text(text: str) -> str:
+def clean_text(text: str, text_cleaner: TextCleaner) -> str:
     """Run the common text-cleaning pipeline."""
-    text = clean_hidden_characters(text)
+    text = text_cleaner.clean(text)
     text = clean_unwanted_space(text)
 
     return text
 
 
-def clean_heading(heading: Heading) -> Heading:
+def clean_heading(
+    heading: Heading,
+    text_cleaner: TextCleaner,
+) -> Heading:
     """Clean heading text while preserving its DOM heading level."""
     return heading.model_copy(
         update={
-            "text": clean_text(heading.text),
+            "text": clean_text(
+                heading.text,
+                text_cleaner,
+            ),
         }
     )
 
 
-def clean_section(section: PageSection) -> PageSection:
+def clean_section(
+    section: PageSection,
+    text_cleaner: TextCleaner,
+) -> PageSection:
     """Clean section text and headings while preserving DOM metadata."""
     headings = [
-        clean_heading(heading)
+        clean_heading(heading, text_cleaner)
         for heading in section.headings
     ]
     headings = [
@@ -62,7 +66,10 @@ def clean_section(section: PageSection) -> PageSection:
 
     return section.model_copy(
         update={
-            "text": clean_text(section.text),
+            "text": clean_text(
+                section.text,
+                text_cleaner,
+            ),
             "headings": headings,
         }
     )
@@ -82,10 +89,23 @@ def remove_empty_sections(
 class PageNormalizer(NormalizerBase):
     """Normalize factual webpage content before LLM extraction."""
 
+    def __init__(
+        self,
+        text_cleaner: TextCleaner | None = None,
+    ) -> None:
+        self.text_cleaner = (
+            text_cleaner
+            if text_cleaner is not None
+            else UnicodeSanityAdapter()
+        )
+
     def normalize(self, page: PageDocument) -> PageDocument:
         """Return a cleaned copy of the page document."""
         sections = [
-            clean_section(section)
+            clean_section(
+                section,
+                self.text_cleaner,
+            )
             for section in page.sections
         ]
         sections = remove_empty_sections(sections)
@@ -93,12 +113,18 @@ class PageNormalizer(NormalizerBase):
         return page.model_copy(
             update={
                 "title": (
-                    clean_text(page.title)
+                    clean_text(
+                        page.title,
+                        self.text_cleaner,
+                    )
                     if page.title is not None
                     else None
                 ),
                 "meta_description": (
-                    clean_text(page.meta_description)
+                    clean_text(
+                        page.meta_description,
+                        self.text_cleaner,
+                    )
                     if page.meta_description is not None
                     else None
                 ),
