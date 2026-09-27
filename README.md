@@ -33,3 +33,43 @@ You can also build and run the image directly:
 docker build -t soramind-agent .
 docker run --rm --init --ipc=host soramind-agent https://example.com --max-pages 10 --max-depth 1
 ```
+
+
+## Run the SoraMinds crawl snapshot
+
+The repository also includes a manual runner for the current pre-LLM pipeline:
+
+```bash
+python run_soraminds_crawl.py
+```
+
+It defaults to:
+
+```text
+https://www.soraminds.com/
+```
+
+and writes:
+
+```text
+soraminds_crawl_output.json
+```
+
+The JSON contains:
+
+- crawl metadata and discovered URLs
+- raw PageDocument output for each discovered page
+- normalized PageDocument output
+- per-page extraction errors, without aborting the whole snapshot
+
+Useful overrides:
+
+```bash
+python run_soraminds_crawl.py \
+  --max-pages 25 \
+  --max-depth 2 \
+  --concurrency 5 \
+  --output output/soraminds_crawl.json
+```
+
+Use `--headed` to show Chromium while the crawl runs.
