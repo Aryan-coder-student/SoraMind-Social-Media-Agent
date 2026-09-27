@@ -2,8 +2,8 @@
 
 import asyncio
 
-from app.infrastructure.browser.base import BrowserBase
 from app.modules.company_knowledge.crawl.base import CrawlStrategy
+from app.modules.company_knowledge.crawl.link_extractor import LinkExtractor
 from app.modules.company_knowledge.crawl.preprocess_url import preprocess_url
 from app.modules.company_knowledge.crawl.validation import is_crawlable_url
 from app.modules.company_knowledge.models.crawl import CrawlResult, DiscoveredURL
@@ -14,10 +14,9 @@ class BFSCrawlStrategy(CrawlStrategy):
 
     def __init__(
         self,
-        browser: BrowserBase,
+        link_extractor: LinkExtractor,
         max_pages: int = 100,
         max_depth: int = 5,
-        concurrency: int = 5,
     ) -> None:
         if max_pages < 1:
             raise ValueError("max_pages must be at least 1.")
@@ -25,33 +24,9 @@ class BFSCrawlStrategy(CrawlStrategy):
         if max_depth < 0:
             raise ValueError("max_depth cannot be negative.")
 
-        if concurrency < 1:
-            raise ValueError("concurrency must be at least 1.")
-
-        self.browser = browser
+        self.link_extractor = link_extractor
         self.max_pages = max_pages
         self.max_depth = max_depth
-        self.semaphore = asyncio.Semaphore(concurrency)
-
-    async def _extract_links(self, url: str) -> list[str]:
-        """Extract anchor URLs from one rendered page."""
-        async with self.semaphore:
-            page = await self.browser.new_page()
-
-            try:
-                await self.browser.navigate(page, url)
-
-                links = await page.locator("a[href]").evaluate_all(
-                    "(elements) => elements.map((element) => element.href)"
-                )
-
-                return [
-                    str(link)
-                    for link in links
-                    if link
-                ]
-            finally:
-                await self.browser.close_page(page)
 
     async def discover(self, seed_url: str) -> CrawlResult:
         """Discover internal URLs level by level from the seed URL."""
@@ -73,7 +48,7 @@ class BFSCrawlStrategy(CrawlStrategy):
         while current_level:
             results = await asyncio.gather(
                 *[
-                    self._extract_links(str(item.url))
+                    self.link_extractor.extract(str(item.url))
                     for item in current_level
                 ],
                 return_exceptions=True,
