@@ -95,7 +95,8 @@ app/
         ├── normalization/
         │   ├── base.py
         │   ├── normalize.py
-        │   └── text_cleaner.py
+        │   ├── text_cleaner.py
+        │   └── text_utils.py
         ├── extraction/
         │   ├── base.py
         │   └── extractor.py
@@ -305,6 +306,7 @@ The normalization pipeline includes:
 
 - `TextCleaner` — application-facing contract for Unicode cleanup
 - `UnicodeSanityAdapter` — adapts the third-party `unicode-sanity` package to the `TextCleaner` contract
+- `text_utils.py` — owns reusable normalization helper functions
 - `clean_unwanted_space()` — collapses repeated whitespace and removes unnecessary blank lines
 - `clean_text()` — runs Unicode cleanup through the adapter, then whitespace cleanup
 - `clean_heading()` — cleans heading text while preserving heading level
@@ -312,6 +314,8 @@ The normalization pipeline includes:
 - `remove_empty_sections()` — removes sections with no useful text or headings
 
 The adapter keeps `unicode-sanity` out of `normalize.py` so the normalization logic depends on our own `TextCleaner` contract rather than a specific third-party library.
+
+`normalize.py` is kept focused on `PageNormalizer` orchestration, while `text_utils.py` owns the reusable cleaning operations.
 
 ```text
 PageNormalizer
