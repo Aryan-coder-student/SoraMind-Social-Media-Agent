@@ -6,7 +6,7 @@ This file tracks Phase 1 implementation progress for the SoraMind Social Media A
 
 ## Current status
 
-Completed and merged pull requests: **13**
+Completed and merged pull requests: **14**
 
 ### Merged PRs
 
@@ -25,6 +25,7 @@ Completed and merged pull requests: **13**
 | #12 | ✅ Merged | Page Discovery fallback that preserves populated `<main>` content when a page has no `<section>` tags | 2026-09-27 |
 | #13 | ✅ Merged | Shared LLM provider abstraction and registry with OpenAI, Anthropic/Claude, and Groq adapters | 2026-09-29 |
 | #14 | ✅ Merged | Deterministic SHA-256 page and section fingerprints over normalized content, excluding DOM-only metadata and page-location fields | 2026-09-29 |
+| #15 | ✅ Merged | Backend-neutral database foundation with SQLite connection adapter, SQLAlchemy page/section schema, indexes, constraints, and database tests | 2026-09-29 |
 
 ## Completed Phase 1 components
 
@@ -123,6 +124,20 @@ Completed and merged pull requests: **13**
 - [x] Page/canonical URLs excluded from content fingerprints
 - [x] Fingerprint determinism and change-sensitivity tests
 
+### Database foundation
+
+- [x] Backend-neutral `DatabaseConnection` contract
+- [x] SQLite Phase 1 connection adapter
+- [x] SQLAlchemy relational schema
+- [x] `pages` and `sections` tables
+- [x] Page URL uniqueness
+- [x] Page and section fingerprint indexes
+- [x] Section foreign-key/index constraints
+- [x] Ordered page → sections relationship
+- [x] SQLite foreign-key enforcement
+- [x] Shared in-memory SQLite test setup
+- [x] Database connection/schema tests
+
 ### Normalization
 
 - [x] Normalizer contract
@@ -163,8 +178,6 @@ This keeps crawling and persistence deterministic while using the LLM only where
 ## Remaining Phase 1 work
 
 - [ ] Repository implementation
-- [ ] SQLite operations
-- [ ] Database connection and schema implementation
 - [ ] Version history for crawled page data
 - [ ] Deterministic page / section change detection
 - [ ] CompanyKnowledgeService orchestration
@@ -189,7 +202,8 @@ Fingerprint / Version Comparison
    ↓
 Repository
    ↓
-SQLite
+Configured database backend
+(SQLite in Phase 1)
 ```
 
 Optional intelligence pipeline:
@@ -223,7 +237,9 @@ LLM provider registry            ✅
    ↓
 Fingerprinting                    ✅
    ↓
-Repository / SQLite              ⏳
+Database foundation              ✅
+   ↓
+Repository implementation         ⏳
    ↓
 Version history                   ⏳
    ↓
