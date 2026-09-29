@@ -19,7 +19,8 @@ Fingerprinting
    ↓
 Repository
    ↓
-SQLite
+Configured database backend
+(SQLite in Phase 1)
 ```
 
 The scheduler, Celery workers, website-change events, Media Intelligence, and social publishing are later phases.
@@ -593,7 +594,7 @@ The service must not contain:
 
 - raw Playwright implementation details
 - provider-specific LLM SDK logic
-- raw SQLite statements
+- backend-specific database details
 
 ## Documentation sync rule
 
