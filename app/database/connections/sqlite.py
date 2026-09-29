@@ -10,8 +10,8 @@ from sqlalchemy.pool import StaticPool
 
 from app.database.base import DatabaseConnection
 from app.database.schemas.sqlalchemy import Base
+from app.settings import SQLITE_DATABASE_URL
 
-DEFAULT_DATABASE_URL = "sqlite:///./soramind.db"
 IN_MEMORY_DATABASE_URLS = {
     "sqlite://",
     "sqlite:///:memory:",
@@ -21,7 +21,7 @@ IN_MEMORY_DATABASE_URLS = {
 class SQLiteConnection(DatabaseConnection):
     """Own SQLite engine lifecycle and SQLAlchemy session/table setup."""
 
-    def __init__(self, database_url: str = DEFAULT_DATABASE_URL) -> None:
+    def __init__(self, database_url: str = SQLITE_DATABASE_URL) -> None:
         self.database_url = database_url
         self._engine: Engine | None = None
 

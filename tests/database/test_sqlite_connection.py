@@ -5,11 +5,9 @@ from sqlalchemy import inspect, select
 from sqlalchemy.engine import Engine
 
 from app.database.base import DatabaseConnection
-from app.database.connections.sqlite import (
-    DEFAULT_DATABASE_URL,
-    SQLiteConnection,
-)
+from app.database.connections.sqlite import SQLiteConnection
 from app.database.schemas.sqlalchemy import PageRow
+from app.settings import SQLITE_DATABASE_URL
 
 
 @pytest.fixture
@@ -119,7 +117,7 @@ def test_close_releases_engine() -> None:
 
 
 def test_default_database_url_uses_sqlite() -> None:
-    assert DEFAULT_DATABASE_URL.startswith("sqlite:///")
+    assert SQLITE_DATABASE_URL.startswith("sqlite:///")
 
 
 def test_connect_returns_sqlalchemy_engine() -> None:

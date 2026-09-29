@@ -197,7 +197,8 @@ MongoDB collections.
 
 Contains the Phase 1 SQLite backend. It owns SQLite-specific SQLAlchemy engine
 configuration, session-factory creation, table creation, foreign-key enforcement,
-and shared in-memory test setup.
+and shared in-memory test setup. Its default URL is configured by the clearly
+named `SQLITE_DATABASE_URL` setting in `app/settings.py`.
 
 Future backends can be added without changing Company Knowledge:
 
