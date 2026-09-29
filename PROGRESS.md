@@ -1,12 +1,12 @@
 # Project Progress
 
-Last updated: 2026-09-28
+Last updated: 2026-09-29
 
 This file tracks Phase 1 implementation progress for the SoraMind Social Media Agent.
 
 ## Current status
 
-Completed and merged pull requests: **10**
+Completed and merged pull requests: **12**
 
 ### Merged PRs
 
@@ -22,6 +22,8 @@ Completed and merged pull requests: **10**
 | #8 | ✅ Merged | Docker runtime, Compose setup, pinned dependencies, and executable crawler CLI | 2026-09-27 |
 | #9 | ✅ Merged | Factual rendered-page DOM discovery using BrowserBase with PageDocument/PageSection extraction and tests | 2026-09-27 |
 | #11 | ✅ Merged | Page Discovery readiness hardening: wait for rendered React content, safe optional metadata lookup, hydration coverage, and live crawl validation | 2026-09-27 |
+| #12 | ✅ Merged | Page Discovery fallback that preserves populated `<main>` content when a page has no `<section>` tags | 2026-09-27 |
+| #13 | ✅ Merged | Shared LLM provider abstraction and registry with OpenAI, Anthropic/Claude, and Groq adapters | 2026-09-29 |
 
 ## Completed Phase 1 components
 
@@ -83,8 +85,9 @@ Completed and merged pull requests: **10**
 - [x] Page cleanup and failure handling
 - [x] Render-readiness wait for hydrated client content
 - [x] Safe optional metadata lookup without timeout on missing elements
+- [x] Fallback to populated `<main>` when no outermost sections exist
 - [x] Page discovery tests
-- [x] Live bounded SoraMinds crawl validation with 10 pages, 73 sections, and 0 page errors
+- [x] Live bounded SoraMinds crawl validation with 10 pages, 75 sections, and 0 page errors
 
 ### Runtime
 
@@ -93,6 +96,18 @@ Completed and merged pull requests: **10**
 - [x] Dockerfile
 - [x] Docker Compose runtime
 - [x] Executable crawler CLI
+
+### LLM providers
+
+- [x] Provider-independent `LLMProvider` contract
+- [x] Immutable `ProviderSpec`
+- [x] `LLMRegistry` registration and provider creation
+- [x] Explicit built-in provider registration
+- [x] OpenAI provider adapter
+- [x] Anthropic / Claude provider adapter
+- [x] Groq provider adapter
+- [x] Configurable model selection per provider
+- [x] Provider tests without live network calls
 
 ### Normalization
 
@@ -108,7 +123,6 @@ Completed and merged pull requests: **10**
 ## Remaining Phase 1 work
 
 - [ ] Structured LLM extraction implementation
-- [ ] LLM provider registry implementation
 - [ ] Repository implementation
 - [ ] SQLite operations
 - [ ] Database connection and schema implementation
@@ -149,7 +163,9 @@ Page discovery                  ✅
    ↓
 Normalization                   ✅
    ↓
-LLM extraction                  ⏳
+LLM provider registry            ✅
+   ↓
+Structured LLM extraction        ⏳
    ↓
 Repository / SQLite             ⏳
 ```
