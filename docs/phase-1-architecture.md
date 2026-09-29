@@ -15,7 +15,7 @@ Page / Section Extraction
    ↓
 Normalization
    ↓
-Structured LLM Extraction
+Fingerprinting
    ↓
 Repository
    ↓
@@ -100,6 +100,9 @@ app/
         │   ├── normalize.py
         │   ├── text_cleaner.py
         │   └── text_utils.py
+        ├── fingerprint/
+        │   ├── base.py
+        │   └── sha256.py
         ├── extraction/
         │   ├── base.py
         │   └── extractor.py
@@ -428,9 +431,39 @@ It does not modify page URLs, canonical URLs, section IDs/classes, child counts,
 
 Normalization stays synchronous because it performs only local Python data/string cleanup and does not use browser, network, database, or LLM calls.
 
-## 6. LLM extraction
+## 6. Fingerprinting
 
-The extraction layer receives normalized page/section models and returns structured knowledge.
+Fingerprinting runs after normalization and hashes exactly the normalized
+content it receives:
+
+```text
+Normalized PageDocument
+        ↓
+Section fingerprints
+        ↓
+Page fingerprint
+        ↓
+Repository / version comparison later
+```
+
+`fingerprint_section()` and `fingerprint_page()` use canonical JSON serialized
+as UTF-8 and SHA-256 hexadecimal digests. A section fingerprint contains ordered
+heading levels and text plus the section text. It ignores section index, DOM id,
+CSS classes, and direct child count so presentation-only changes do not change
+the content hash.
+
+A page fingerprint contains the title, meta description, and ordered section
+fingerprints. It ignores page and canonical URLs because repository context owns
+page identity. Section order remains significant.
+
+Fingerprinting does not repeat normalization or use an LLM. Persistence,
+version comparison, diffs, and change interpretation are later responsibilities.
+
+## 7. Optional LLM change interpretation
+
+LLMs are not required for primary factual ingestion or fingerprint generation.
+Later change-intelligence work may send only changed pages or sections for
+semantic interpretation.
 
 The shared provider layer is separate from Company Knowledge extraction:
 
@@ -470,7 +503,9 @@ Possible output:
 LLM access goes through:
 
 ```text
-KnowledgeExtractor
+Changed page / section
+       ↓
+Change interpreter
        ↓
 core.llm.registry
        ↓
@@ -479,7 +514,7 @@ configured provider
 
 The Company Knowledge module must not branch directly on provider names.
 
-## 7. Service orchestration
+## 8. Service orchestration
 
 `service.py` coordinates the Phase 1 flow:
 
@@ -489,8 +524,8 @@ urls = crawler.discover(seed_url)
 for url in urls:
     page = discovery.extract(url)
     normalized = normalizer.normalize(page)
-    knowledge = extractor.extract(normalized)
-    repository.save(normalized, knowledge)
+    page_fingerprint = fingerprinter.fingerprint_page(normalized)
+    repository.save(normalized, page_fingerprint)
 ```
 
 The service must not contain:
@@ -510,10 +545,11 @@ Whenever the folder structure, architecture, responsibilities, or any decision d
 3. Use Strategy Pattern for crawl discovery.
 4. Use async Playwright.
 5. Share browser lifecycle infrastructure.
-6. Keep DOM discovery factual; keep semantic interpretation in extraction.
+6. Keep DOM discovery factual; keep semantic interpretation optional and downstream.
 7. Use a shared Repository Pattern under `app/repository`.
 8. Keep DB connection/schema under `app/database`.
 9. Keep SQLite implementation under `repository/operations/sqlite_operation.py`.
 10. Do not use JSON files as the source of truth.
 11. Do not introduce Celery/events in Phase 1.
 12. Do not hardcode business semantics from CSS classes or section positions.
+13. Fingerprint normalized content with SHA-256 while ignoring DOM-only metadata.
