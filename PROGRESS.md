@@ -120,17 +120,48 @@ Completed and merged pull requests: **12**
 - [x] Empty-section removal
 - [x] Page normalization
 
+## Current architecture direction
+
+The normalized factual page data is the source of truth for Phase 1.
+
+`PageDocument` / normalized page structure should be persisted directly instead of requiring an LLM to restructure information that is already available deterministically.
+
+LLM output is treated as optional derived intelligence rather than the primary stored representation.
+
+Planned change-intelligence flow:
+
+```text
+previous stored version
+        +
+new normalized version
+        ↓
+deterministic fingerprint / diff
+        ↓
+changed sections only
+        ↓
+optional LLM interpretation
+        ↓
+human-readable change summary / semantic enrichment
+```
+
+This keeps crawling and persistence deterministic while using the LLM only where semantic interpretation adds value.
+
 ## Remaining Phase 1 work
 
-- [ ] Structured LLM extraction implementation
 - [ ] Repository implementation
 - [ ] SQLite operations
 - [ ] Database connection and schema implementation
+- [ ] Page and section fingerprinting
+- [ ] Version history for crawled page data
+- [ ] Deterministic page / section change detection
 - [ ] CompanyKnowledgeService orchestration
 - [ ] Tests for implemented components
-- [ ] End-to-end Phase 1 crawl → normalize → extract → persist flow
+- [ ] End-to-end Phase 1 crawl → normalize → fingerprint → persist flow
+- [ ] Optional LLM-based interpretation of changed content
 
 ## Phase 1 flow
+
+Primary factual pipeline:
 
 ```text
 Seed URL
@@ -141,11 +172,23 @@ Page / Section Extraction
    ↓
 Normalization
    ↓
-Structured LLM Extraction
+Fingerprint / Version Comparison
    ↓
 Repository
    ↓
 SQLite
+```
+
+Optional intelligence pipeline:
+
+```text
+Changed page / section
+        ↓
+Deterministic diff
+        ↓
+LLM provider
+        ↓
+Change interpretation / semantic enrichment
 ```
 
 Current implementation progress in that flow:
@@ -165,9 +208,13 @@ Normalization                   ✅
    ↓
 LLM provider registry            ✅
    ↓
-Structured LLM extraction        ⏳
+Fingerprint / versioning         ⏳
    ↓
-Repository / SQLite             ⏳
+Repository / SQLite              ⏳
+   ↓
+Change detection                 ⏳
+   ↓
+Optional LLM interpretation      ⏳
 ```
 
 ## Development workflow
