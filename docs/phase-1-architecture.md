@@ -179,7 +179,9 @@ session factory and delegates domain ↔ persistence conversion to
 
 `app/repository/operations/utils.py` contains the mapping helpers between factual
 domain models (`PageDocument` / `PageSection`) and persistence rows
-(`PageRow` / `SectionRow`).
+(`PageRow` / `SectionRow`). It also owns the URL boundary helper that validates
+repository URL inputs as Pydantic `HttpUrl` values before converting them to the
+SQL string representation.
 
 `save_page()` is a current-state upsert keyed by page URL:
 
@@ -199,6 +201,9 @@ SQLAlchemy connection later. A document database can add a separate repository
 implementation such as `mongodb.py`.
 
 Company Knowledge does not import SQLAlchemy rows, sessions, or SQLite details.
+Repository lookup/delete methods accept validated `HttpUrl` domain values; the
+relational database still stores URLs as `TEXT`, because URL validation belongs
+at the application/domain boundary rather than in a database-specific column type.
 
 ### `app/database/base.py`
 
