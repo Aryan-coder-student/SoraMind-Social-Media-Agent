@@ -6,7 +6,7 @@ This file tracks Phase 1 implementation progress for the SoraMind Social Media A
 
 ## Current status
 
-Completed and merged pull requests: **12**
+Completed and merged pull requests: **13**
 
 ### Merged PRs
 
@@ -24,6 +24,7 @@ Completed and merged pull requests: **12**
 | #11 | ✅ Merged | Page Discovery readiness hardening: wait for rendered React content, safe optional metadata lookup, hydration coverage, and live crawl validation | 2026-09-27 |
 | #12 | ✅ Merged | Page Discovery fallback that preserves populated `<main>` content when a page has no `<section>` tags | 2026-09-27 |
 | #13 | ✅ Merged | Shared LLM provider abstraction and registry with OpenAI, Anthropic/Claude, and Groq adapters | 2026-09-29 |
+| #14 | ✅ Merged | Deterministic SHA-256 page and section fingerprints over normalized content, excluding DOM-only metadata and page-location fields | 2026-09-29 |
 
 ## Completed Phase 1 components
 
@@ -109,6 +110,19 @@ Completed and merged pull requests: **12**
 - [x] Configurable model selection per provider
 - [x] Provider tests without live network calls
 
+### Fingerprinting
+
+- [x] Deterministic SHA-256 section fingerprints
+- [x] Deterministic SHA-256 page fingerprints
+- [x] Canonical JSON serialization before hashing
+- [x] Ordered heading level/text included in section fingerprints
+- [x] Section text included in section fingerprints
+- [x] Page title/meta description included in page fingerprints
+- [x] Ordered section fingerprints included in page fingerprints
+- [x] DOM-only metadata excluded from content fingerprints
+- [x] Page/canonical URLs excluded from content fingerprints
+- [x] Fingerprint determinism and change-sensitivity tests
+
 ### Normalization
 
 - [x] Normalizer contract
@@ -151,7 +165,6 @@ This keeps crawling and persistence deterministic while using the LLM only where
 - [ ] Repository implementation
 - [ ] SQLite operations
 - [ ] Database connection and schema implementation
-- [ ] Page and section fingerprinting
 - [ ] Version history for crawled page data
 - [ ] Deterministic page / section change detection
 - [ ] CompanyKnowledgeService orchestration
@@ -208,9 +221,11 @@ Normalization                   ✅
    ↓
 LLM provider registry            ✅
    ↓
-Fingerprint / versioning         ⏳
+Fingerprinting                    ✅
    ↓
 Repository / SQLite              ⏳
+   ↓
+Version history                   ⏳
    ↓
 Change detection                 ⏳
    ↓
