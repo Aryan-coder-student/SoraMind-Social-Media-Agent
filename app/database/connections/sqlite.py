@@ -6,11 +6,16 @@ from typing import Any
 from sqlalchemy import Engine, event
 from sqlalchemy import create_engine as sqlalchemy_create_engine
 from sqlalchemy.orm import Session, sessionmaker
-from sqlalchemy.pool import StaticPool
+from sqlalchemy.pool import QueuePool, StaticPool
 
 from app.database.base import DatabaseConnection
 from app.database.schemas.sqlalchemy import Base
-from app.settings import SQLITE_DATABASE_URL
+from app.settings import (
+    SQLALCHEMY_MAX_OVERFLOW,
+    SQLALCHEMY_POOL_SIZE,
+    SQLALCHEMY_POOL_TIMEOUT,
+    SQLITE_DATABASE_URL,
+)
 
 
 class SQLiteConnection(DatabaseConnection):
@@ -64,6 +69,15 @@ class SQLiteConnection(DatabaseConnection):
             # An in-memory SQLite database belongs to one DB-API connection.
             # StaticPool keeps all sessions on that same connection.
             options["poolclass"] = StaticPool
+        else:
+            options.update(
+                {
+                    "poolclass": QueuePool,
+                    "pool_size": SQLALCHEMY_POOL_SIZE,
+                    "max_overflow": SQLALCHEMY_MAX_OVERFLOW,
+                    "pool_timeout": SQLALCHEMY_POOL_TIMEOUT,
+                }
+            )
 
         return options
 

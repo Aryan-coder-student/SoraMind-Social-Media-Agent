@@ -3,12 +3,17 @@
 import pytest
 from sqlalchemy import inspect, select
 from sqlalchemy.engine import Engine
-from sqlalchemy.pool import StaticPool
+from sqlalchemy.pool import QueuePool, StaticPool
 
 from app.database.base import DatabaseConnection
 from app.database.connections.sqlite import SQLiteConnection
 from app.database.schemas.sqlalchemy import PageRow
-from app.settings import SQLITE_DATABASE_URL
+from app.settings import (
+    SQLALCHEMY_MAX_OVERFLOW,
+    SQLALCHEMY_POOL_SIZE,
+    SQLALCHEMY_POOL_TIMEOUT,
+    SQLITE_DATABASE_URL,
+)
 
 
 @pytest.fixture
@@ -91,6 +96,40 @@ def test_in_memory_database_uses_one_shared_connection() -> None:
         assert isinstance(engine.pool, StaticPool)
     finally:
         database.close()
+
+
+
+def test_file_database_uses_queue_pool(tmp_path) -> None:
+    database_url = f"sqlite:///{tmp_path / 'pool.db'}"
+    database = SQLiteConnection(database_url)
+
+    try:
+        engine = database.connect()
+
+        assert isinstance(engine.pool, QueuePool)
+        assert engine.pool.size() == SQLALCHEMY_POOL_SIZE
+        assert SQLALCHEMY_MAX_OVERFLOW == 5
+        assert SQLALCHEMY_POOL_TIMEOUT == 30.0
+    finally:
+        database.close()
+
+
+def test_file_database_reuses_checked_in_connection(tmp_path) -> None:
+    database_url = f"sqlite:///{tmp_path / 'reuse.db'}"
+    database = SQLiteConnection(database_url)
+
+    try:
+        engine = database.connect()
+
+        with engine.connect() as first_connection:
+            first_driver_connection = first_connection.connection.driver_connection
+
+        with engine.connect() as second_connection:
+            second_driver_connection = second_connection.connection.driver_connection
+    finally:
+        database.close()
+
+    assert first_driver_connection is second_driver_connection
 
 
 def test_multiple_sessions_share_in_memory_database(

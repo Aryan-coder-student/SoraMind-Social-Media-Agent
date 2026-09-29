@@ -226,8 +226,16 @@ MongoDB collections.
 
 Contains the Phase 1 SQLite backend. It owns SQLite-specific SQLAlchemy engine
 configuration, session-factory creation, table creation, foreign-key enforcement,
-and shared in-memory test setup. Its default URL is configured by the clearly
-named `SQLITE_DATABASE_URL` setting in `app/settings.py`.
+and connection-pool setup. File-backed SQLite uses a small SQLAlchemy
+`QueuePool` so repeated repository/session work can reuse checked-in
+connections instead of reopening them. In-memory SQLite continues to use
+`StaticPool` because an in-memory database belongs to one DB-API connection.
+
+Pool size, overflow, and checkout timeout are configured in `app/settings.py`
+through `SQLALCHEMY_POOL_SIZE`, `SQLALCHEMY_MAX_OVERFLOW`, and
+`SQLALCHEMY_POOL_TIMEOUT`. The pool is intentionally small because SQLite
+still serializes writes; pooling reduces connection setup overhead but does not
+turn SQLite into a high-concurrency write database.
 
 Future backends can be added without changing Company Knowledge:
 
