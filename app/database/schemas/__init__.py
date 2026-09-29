@@ -1,1 +1,0 @@
-"""Database-backend schema definitions."""

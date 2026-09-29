@@ -1,5 +1,7 @@
 """Application-level settings and constants."""
 
+DEFAULT_DATABASE_URL = "sqlite:///./soramind.db"
+
 SKIPPED_EXTENSIONS = {
     ".jpg",
     ".jpeg",

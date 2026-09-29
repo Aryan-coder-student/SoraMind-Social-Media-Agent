@@ -19,8 +19,7 @@ Fingerprinting
    ↓
 Repository
    ↓
-Configured database backend
-(SQLite in Phase 1)
+SQLite
 ```
 
 The scheduler, Celery workers, website-change events, Media Intelligence, and social publishing are later phases.
@@ -69,13 +68,8 @@ app/
 │
 ├── database/
 │   ├── __init__.py
-│   ├── base.py
-│   ├── connections/
-│   │   ├── __init__.py
-│   │   └── sqlite.py
-│   └── schemas/
-│       ├── __init__.py
-│       └── sqlalchemy.py
+│   ├── connection.py
+│   └── schema.py
 │
 ├── repository/
 │   ├── __init__.py
@@ -129,15 +123,10 @@ CompanyKnowledgeService
     Repository Base
           │
           ▼
-Repository implementation
+  SQLite Operation
           │
           ▼
- DatabaseConnection
-          │
-     ┌────┼──────────┐
-     ▼    ▼          ▼
-   SQLite PostgreSQL MongoDB
-   (now)   (later)    (later)
+      Database
 ```
 
 ### `app/repository/base.py`
@@ -176,43 +165,20 @@ repository/
 
 Company Knowledge should not contain SQLite-specific logic.
 
-### `app/database/base.py`
+### `app/database/connection.py`
 
-Defines the backend-neutral database lifecycle contract. Application/domain code
-depends on this boundary instead of importing a concrete database client.
+Provides three direct operations with readable names:
 
-The common contract contains only lifecycle behavior that applies across
-relational and document databases:
+- `create_database_engine()` creates the SQLite engine.
+- `create_session_factory()` configures reusable synchronous sessions.
+- `create_tables()` creates the current schema.
 
-```text
-DatabaseConnection
-├── connect()
-└── close()
-```
+The default SQLite URL lives in `app/settings.py`. The connection module also
+enables foreign keys and shares one in-memory connection during tests.
 
-It intentionally does not define SQLAlchemy sessions, SQL statements, tables, or
-MongoDB collections.
+### `app/database/schema.py`
 
-### `app/database/connections/sqlite.py`
-
-Contains the Phase 1 SQLite backend. It owns SQLite-specific SQLAlchemy engine
-configuration, session-factory creation, table creation, foreign-key enforcement,
-and shared in-memory test setup.
-
-Future backends can be added without changing Company Knowledge:
-
-```text
-database/connections/
-├── sqlite.py       ← Phase 1
-├── postgres.py     ← later
-└── mongodb.py      ← later
-```
-
-### `app/database/schemas/sqlalchemy.py`
-
-Defines the current relational `pages` and `sections` mappings. The schema is
-named for SQLAlchemy rather than SQLite because the same relational mapping can
-be reused by another SQLAlchemy backend such as PostgreSQL.
+Defines the current `pages` and `sections` mappings.
 
 - `pages.url` is the unique page identity. Each page row stores its current
   normalized metadata and page fingerprint.
@@ -229,9 +195,6 @@ be reused by another SQLAlchemy backend such as PostgreSQL.
 pages 1 ─── * sections
 ```
 
-MongoDB would use its own document/collection representation rather than being
-forced through the SQLAlchemy schema.
-
 This schema stores only the latest normalized state. Version history, change
 records, and CRUD repository operations remain later work.
 
@@ -242,7 +205,7 @@ repository/
 = how application data is persisted/retrieved
 
 database/
-= backend-neutral lifecycle + backend connections + persistence schemas
+= database connection + schema
 
 company_knowledge/
 = business/domain workflow
@@ -594,7 +557,7 @@ The service must not contain:
 
 - raw Playwright implementation details
 - provider-specific LLM SDK logic
-- backend-specific database details
+- raw SQLite statements
 
 ## Documentation sync rule
 
@@ -609,8 +572,8 @@ Whenever the folder structure, architecture, responsibilities, or any decision d
 5. Share browser lifecycle infrastructure.
 6. Keep DOM discovery factual; keep semantic interpretation optional and downstream.
 7. Use a shared Repository Pattern under `app/repository`.
-8. Keep database lifecycle contracts, concrete connections, and persistence schemas under `app/database`.
-9. Keep database backends behind `DatabaseConnection`; SQLite is the Phase 1 backend, with PostgreSQL/MongoDB addable later without changing Company Knowledge.
+8. Keep DB connection/schema under `app/database`.
+9. Keep SQLite implementation under `repository/operations/sqlite_operation.py`.
 10. Do not use JSON files as the source of truth.
 11. Do not introduce Celery/events in Phase 1.
 12. Do not hardcode business semantics from CSS classes or section positions.

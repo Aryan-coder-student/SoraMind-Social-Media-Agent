@@ -1,28 +1,30 @@
-"""Tests for the relational SQLAlchemy Company Knowledge schema."""
+"""Tests for the Company Knowledge database schema."""
 
 import pytest
 from sqlalchemy import delete, inspect
+from sqlalchemy.engine import Engine
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, sessionmaker
 
-from app.database.connections.sqlite import SQLiteConnection
-from app.database.schemas.sqlalchemy import PageRow, SectionRow
+from app.database.connection import (
+    create_database_engine,
+    create_session_factory,
+    create_tables,
+)
+from app.database.schema import PageRow, SectionRow
 
 
 @pytest.fixture
-def connection() -> SQLiteConnection:
-    database = SQLiteConnection("sqlite:///:memory:")
-    database.connect()
-    database.create_tables()
-    yield database
-    database.close()
+def engine() -> Engine:
+    database_engine = create_database_engine("sqlite:///:memory:")
+    create_tables(database_engine)
+    yield database_engine
+    database_engine.dispose()
 
 
 @pytest.fixture
-def session_factory(
-    connection: SQLiteConnection,
-) -> sessionmaker[Session]:
-    return connection.create_session_factory()
+def session_factory(engine: Engine) -> sessionmaker[Session]:
+    return create_session_factory(engine)
 
 
 def make_page(
@@ -70,11 +72,7 @@ def make_section(
 def test_persists_page_with_nullable_metadata(
     session_factory: sessionmaker[Session],
 ) -> None:
-    page = make_page(
-        title=None,
-        meta_description=None,
-        canonical_url=None,
-    )
+    page = make_page(title=None, meta_description=None, canonical_url=None)
 
     with session_factory() as session:
         session.add(page)
@@ -107,7 +105,6 @@ def test_persists_sections_through_page_relationship(
         stored_page = session.get(PageRow, page_id)
         assert stored_page is not None
         stored_section = stored_page.sections[0]
-
         assert stored_section.page is stored_page
         assert stored_section.dom_id is None
         assert stored_section.classes == ["hero", "container"]
@@ -151,7 +148,6 @@ def test_page_url_must_be_unique(
 ) -> None:
     with session_factory() as session:
         session.add_all([make_page(), make_page()])
-
         with pytest.raises(IntegrityError):
             session.commit()
 
@@ -164,7 +160,6 @@ def test_page_section_index_must_be_unique(
 
     with session_factory() as session:
         session.add(page)
-
         with pytest.raises(IntegrityError):
             session.commit()
 
@@ -193,16 +188,8 @@ def test_json_and_numeric_defaults_are_independent(
     page = make_page()
     page.sections.extend(
         [
-            SectionRow(
-                section_index=0,
-                text="First",
-                fingerprint="b" * 64,
-            ),
-            SectionRow(
-                section_index=1,
-                text="Second",
-                fingerprint="c" * 64,
-            ),
+            SectionRow(section_index=0, text="First", fingerprint="b" * 64),
+            SectionRow(section_index=1, text="Second", fingerprint="c" * 64),
         ]
     )
 
@@ -216,16 +203,14 @@ def test_json_and_numeric_defaults_are_independent(
         assert page.sections[0].headings is not page.sections[1].headings
 
 
-def test_schema_creates_required_indexes(
-    connection: SQLiteConnection,
-) -> None:
+def test_schema_creates_required_indexes(engine: Engine) -> None:
     page_indexes = {
         tuple(index["column_names"])
-        for index in inspect(connection.engine).get_indexes("pages")
+        for index in inspect(engine).get_indexes("pages")
     }
     section_indexes = {
         tuple(index["column_names"])
-        for index in inspect(connection.engine).get_indexes("sections")
+        for index in inspect(engine).get_indexes("sections")
     }
 
     assert ("fingerprint",) in page_indexes
