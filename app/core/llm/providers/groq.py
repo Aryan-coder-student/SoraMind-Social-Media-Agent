@@ -1,14 +1,14 @@
-"""OpenAI text generation adapter."""
+"""Groq text generation adapter."""
 
 from typing import Any
 
-from openai import AsyncOpenAI
+from groq import AsyncGroq
 
 from app.core.llm.base import LLMProvider
 
 
-class OpenAIProvider(LLMProvider):
-    """Generate plain text through OpenAI chat completions."""
+class GroqProvider(LLMProvider):
+    """Generate plain text through Groq chat completions."""
 
     def __init__(
         self,
@@ -17,14 +17,14 @@ class OpenAIProvider(LLMProvider):
         client: Any | None = None,
     ) -> None:
         self.model = model
-        self.client = client if client is not None else AsyncOpenAI(api_key=api_key)
+        self.client = client if client is not None else AsyncGroq(api_key=api_key)
 
     async def generate(
         self,
         prompt: str,
         system_prompt: str | None = None,
     ) -> str:
-        """Return generated text from OpenAI."""
+        """Return generated text from Groq."""
         messages = []
 
         if system_prompt is not None:

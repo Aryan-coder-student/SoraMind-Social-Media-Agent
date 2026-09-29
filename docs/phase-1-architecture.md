@@ -62,7 +62,9 @@ app/
 │       ├── spec.py
 │       ├── registry.py
 │       └── providers/
-│           └── openai.py
+│           ├── openai.py
+│           ├── anthropic.py
+│           └── groq.py
 │
 ├── database/
 │   ├── __init__.py
@@ -429,6 +431,31 @@ Normalization stays synchronous because it performs only local Python data/strin
 ## 6. LLM extraction
 
 The extraction layer receives normalized page/section models and returns structured knowledge.
+
+The shared provider layer is separate from Company Knowledge extraction:
+
+```text
+LLM consumer
+     ↓
+LLMRegistry
+     ↓
+ProviderSpec
+     ↓
+LLMProvider
+     ├── OpenAIProvider
+     ├── AnthropicProvider
+     └── GroqProvider
+```
+
+`LLMProvider` exposes only asynchronous plain-text generation with an optional
+system prompt. `ProviderSpec` records the provider factory, configurable default
+model, and API-key environment variable name. `LLMRegistry` registers specs and
+constructs providers through those factories without provider-specific branches.
+
+A provider name identifies the API vendor (`openai`, `anthropic`, or `groq`). A
+model is a configurable identifier passed to that vendor. Domain modules do not
+branch on provider names, and SDK request/response types remain inside the
+provider adapters.
 
 Possible output:
 
