@@ -1,4 +1,4 @@
-"""Current normalized page and section database schema."""
+"""SQLAlchemy schema for current normalized page and section state."""
 
 from __future__ import annotations
 
@@ -7,7 +7,7 @@ from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 
 class Base(DeclarativeBase):
-    """Declarative base for Phase 1 persistence tables."""
+    """Declarative base for relational Phase 1 persistence tables."""
 
 
 class PageRow(Base):
@@ -15,8 +15,16 @@ class PageRow(Base):
 
     __tablename__ = "pages"
 
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    url: Mapped[str] = mapped_column(Text, nullable=False, unique=True)
+    id: Mapped[int] = mapped_column(
+        Integer,
+        primary_key=True,
+        autoincrement=True,
+    )
+    url: Mapped[str] = mapped_column(
+        Text,
+        nullable=False,
+        unique=True,
+    )
     title: Mapped[str | None] = mapped_column(Text, nullable=True)
     meta_description: Mapped[str | None] = mapped_column(Text, nullable=True)
     canonical_url: Mapped[str | None] = mapped_column(Text, nullable=True)
@@ -25,7 +33,7 @@ class PageRow(Base):
         nullable=False,
         index=True,
     )
-    sections: Mapped[list[SectionRow]] = relationship(
+    sections: Mapped[list["SectionRow"]] = relationship(
         back_populates="page",
         cascade="all, delete-orphan",
         order_by="SectionRow.section_index",
@@ -45,7 +53,11 @@ class SectionRow(Base):
         ),
     )
 
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    id: Mapped[int] = mapped_column(
+        Integer,
+        primary_key=True,
+        autoincrement=True,
+    )
     page_id: Mapped[int] = mapped_column(
         ForeignKey("pages.id", ondelete="CASCADE"),
         nullable=False,
@@ -53,14 +65,22 @@ class SectionRow(Base):
     )
     section_index: Mapped[int] = mapped_column(Integer, nullable=False)
     dom_id: Mapped[str | None] = mapped_column(Text, nullable=True)
-    classes: Mapped[list[str]] = mapped_column(JSON, nullable=False, default=list)
+    classes: Mapped[list[str]] = mapped_column(
+        JSON,
+        nullable=False,
+        default=list,
+    )
     headings: Mapped[list[dict[str, object]]] = mapped_column(
         JSON,
         nullable=False,
         default=list,
     )
     text: Mapped[str] = mapped_column(Text, nullable=False)
-    child_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    child_count: Mapped[int] = mapped_column(
+        Integer,
+        nullable=False,
+        default=0,
+    )
     fingerprint: Mapped[str] = mapped_column(
         String(64),
         nullable=False,
