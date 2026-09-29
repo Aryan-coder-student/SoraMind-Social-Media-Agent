@@ -82,7 +82,8 @@ app/
 │   ├── base.py
 │   └── operations/
 │       ├── __init__.py
-│       └── sqlalchemy.py
+│       ├── sqlalchemy.py
+│       └── utils.py
 │
 ├── infrastructure/
 │   └── browser/
@@ -173,8 +174,11 @@ class Repository(ABC):
 ### `app/repository/operations/sqlalchemy.py`
 
 Contains the relational repository implementation. It receives a SQLAlchemy
-session factory and converts between factual domain models
-(`PageDocument` / `PageSection`) and persistence rows
+session factory and delegates domain ↔ persistence conversion to
+`app/repository/operations/utils.py`.
+
+`app/repository/operations/utils.py` contains the mapping helpers between factual
+domain models (`PageDocument` / `PageSection`) and persistence rows
 (`PageRow` / `SectionRow`).
 
 `save_page()` is a current-state upsert keyed by page URL:
