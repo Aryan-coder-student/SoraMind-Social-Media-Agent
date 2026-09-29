@@ -12,11 +12,6 @@ from app.database.base import DatabaseConnection
 from app.database.schemas.sqlalchemy import Base
 from app.settings import SQLITE_DATABASE_URL
 
-IN_MEMORY_DATABASE_URLS = {
-    "sqlite://",
-    "sqlite:///:memory:",
-}
-
 
 class SQLiteConnection(DatabaseConnection):
     """Own SQLite engine lifecycle and SQLAlchemy session/table setup."""
@@ -25,50 +20,60 @@ class SQLiteConnection(DatabaseConnection):
         self.database_url = database_url
         self._engine: Engine | None = None
 
-    @property
-    def engine(self) -> Engine:
-        """Return the active engine, requiring connect() first."""
-        if self._engine is None:
-            raise RuntimeError("SQLite connection has not been opened")
-        return self._engine
-
     def connect(self) -> Engine:
         """Create the SQLite engine once and return it."""
-        if self._engine is not None:
-            return self._engine
+        if self._engine is None:
+            self._engine = self._create_engine()
 
-        engine_options: dict[str, Any] = {
-            "connect_args": {"check_same_thread": False},
-        }
-
-        if self.database_url in IN_MEMORY_DATABASE_URLS:
-            engine_options["poolclass"] = StaticPool
-
-        engine = sqlalchemy_create_engine(
-            self.database_url,
-            **engine_options,
-        )
-        event.listen(engine, "connect", _enable_sqlite_foreign_keys)
-        self._engine = engine
-        return engine
+        return self._engine
 
     def create_session_factory(self) -> sessionmaker[Session]:
         """Create a reusable synchronous session factory."""
         return sessionmaker(
-            bind=self.engine,
+            bind=self.connect(),
             autoflush=False,
             expire_on_commit=False,
         )
 
     def create_tables(self) -> None:
-        """Create the SQLAlchemy tables for the active SQLite engine."""
-        Base.metadata.create_all(self.engine)
+        """Create the SQLAlchemy tables for the configured SQLite database."""
+        Base.metadata.create_all(self.connect())
 
     def close(self) -> None:
         """Dispose the active engine."""
         if self._engine is not None:
             self._engine.dispose()
             self._engine = None
+
+    def _create_engine(self) -> Engine:
+        """Build an engine using only SQLite-specific configuration."""
+        engine = sqlalchemy_create_engine(
+            self.database_url,
+            **self._engine_options(),
+        )
+        event.listen(engine, "connect", _enable_sqlite_foreign_keys)
+        return engine
+
+    def _engine_options(self) -> dict[str, Any]:
+        """Return SQLite engine options for the configured database URL."""
+        options: dict[str, Any] = {
+            "connect_args": {"check_same_thread": False},
+        }
+
+        if _is_in_memory_database(self.database_url):
+            # An in-memory SQLite database belongs to one DB-API connection.
+            # StaticPool keeps all sessions on that same connection.
+            options["poolclass"] = StaticPool
+
+        return options
+
+
+def _is_in_memory_database(database_url: str) -> bool:
+    """Return whether the URL represents an in-memory SQLite database."""
+    return database_url in {
+        "sqlite://",
+        "sqlite:///:memory:",
+    }
 
 
 def _enable_sqlite_foreign_keys(
