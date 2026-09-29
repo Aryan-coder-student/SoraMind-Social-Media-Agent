@@ -2,6 +2,8 @@
 
 from abc import ABC, abstractmethod
 
+from pydantic import HttpUrl
+
 from app.modules.company_knowledge.models.page import PageDocument
 
 
@@ -21,7 +23,7 @@ class Repository(ABC):
     @abstractmethod
     def get_page(
         self,
-        url: str,
+        url: HttpUrl,
     ) -> PageDocument | None:
         """Return the current normalized page for a URL."""
         ...
@@ -29,7 +31,7 @@ class Repository(ABC):
     @abstractmethod
     def get_page_fingerprint(
         self,
-        url: str,
+        url: HttpUrl,
     ) -> str | None:
         """Return the current page fingerprint for a URL."""
         ...
@@ -37,7 +39,7 @@ class Repository(ABC):
     @abstractmethod
     def delete_page(
         self,
-        url: str,
+        url: HttpUrl,
     ) -> bool:
         """Delete the current page state and return whether it existed."""
         ...
