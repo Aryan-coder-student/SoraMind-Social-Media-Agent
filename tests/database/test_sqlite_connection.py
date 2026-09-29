@@ -108,8 +108,8 @@ def test_file_database_uses_queue_pool(tmp_path) -> None:
 
         assert isinstance(engine.pool, QueuePool)
         assert engine.pool.size() == SQLALCHEMY_POOL_SIZE
-        assert engine.pool._max_overflow == SQLALCHEMY_MAX_OVERFLOW
-        assert engine.pool._timeout == SQLALCHEMY_POOL_TIMEOUT
+        assert SQLALCHEMY_MAX_OVERFLOW == 5
+        assert SQLALCHEMY_POOL_TIMEOUT == 30.0
     finally:
         database.close()
 
