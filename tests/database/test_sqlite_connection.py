@@ -3,6 +3,7 @@
 import pytest
 from sqlalchemy import inspect, select
 from sqlalchemy.engine import Engine
+from sqlalchemy.pool import StaticPool
 
 from app.database.base import DatabaseConnection
 from app.database.connections.sqlite import SQLiteConnection
@@ -39,10 +40,23 @@ def test_creates_in_memory_sqlite_engine() -> None:
 def test_create_tables_creates_page_and_section_tables(
     connection: SQLiteConnection,
 ) -> None:
-    assert set(inspect(connection.engine).get_table_names()) == {
+    assert set(inspect(connection.connect()).get_table_names()) == {
         "pages",
         "sections",
     }
+
+
+def test_create_tables_connects_lazily() -> None:
+    database = SQLiteConnection("sqlite:///:memory:")
+
+    try:
+        database.create_tables()
+        assert set(inspect(database.connect()).get_table_names()) == {
+            "pages",
+            "sections",
+        }
+    finally:
+        database.close()
 
 
 def test_session_factory_returns_configured_working_session(
@@ -59,12 +73,24 @@ def test_session_factory_returns_configured_working_session(
 def test_enables_sqlite_foreign_keys(
     connection: SQLiteConnection,
 ) -> None:
-    with connection.engine.connect() as engine_connection:
+    engine = connection.connect()
+
+    with engine.connect() as engine_connection:
         foreign_keys_enabled = engine_connection.exec_driver_sql(
             "PRAGMA foreign_keys"
         ).scalar_one()
 
     assert foreign_keys_enabled == 1
+
+
+def test_in_memory_database_uses_one_shared_connection() -> None:
+    database = SQLiteConnection("sqlite:///:memory:")
+
+    try:
+        engine = database.connect()
+        assert isinstance(engine.pool, StaticPool)
+    finally:
+        database.close()
 
 
 def test_multiple_sessions_share_in_memory_database(
@@ -100,20 +126,18 @@ def test_connect_reuses_active_engine() -> None:
     assert first_engine is second_engine
 
 
-def test_engine_requires_active_connection() -> None:
+def test_close_allows_a_fresh_connection() -> None:
     database = SQLiteConnection("sqlite:///:memory:")
 
-    with pytest.raises(RuntimeError, match="has not been opened"):
-        _ = database.engine
-
-
-def test_close_releases_engine() -> None:
-    database = SQLiteConnection("sqlite:///:memory:")
-    database.connect()
+    first_engine = database.connect()
     database.close()
 
-    with pytest.raises(RuntimeError, match="has not been opened"):
-        _ = database.engine
+    try:
+        second_engine = database.connect()
+    finally:
+        database.close()
+
+    assert first_engine is not second_engine
 
 
 def test_default_database_url_uses_sqlite() -> None:
