@@ -1,11 +1,21 @@
 """Repository mapping helpers between domain models and SQLAlchemy rows."""
 
+from pydantic import HttpUrl, TypeAdapter
+
 from app.database.schemas.sqlalchemy import PageRow, SectionRow
+_HTTP_URL_ADAPTER = TypeAdapter(HttpUrl)
+
+
 from app.modules.company_knowledge.models.page import (
     Heading,
     PageDocument,
     PageSection,
 )
+
+
+def url_to_string(url: HttpUrl | str) -> str:
+    """Validate an HTTP(S) URL and return its persistence representation."""
+    return str(_HTTP_URL_ADAPTER.validate_python(url))
 
 
 def section_to_row(
