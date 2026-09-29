@@ -167,11 +167,31 @@ Company Knowledge should not contain SQLite-specific logic.
 
 ### `app/database/connection.py`
 
-Responsible only for database connection/session setup.
+Provides the synchronous SQLAlchemy engine, session factory, and table creation
+entry point. SQLite connections enable foreign-key enforcement. In-memory
+engines use one shared connection so separate sessions observe the same data.
 
 ### `app/database/schema.py`
 
-Responsible for database schema/table definitions.
+Defines the current-state `pages` and `sections` tables:
+
+- `pages.url` is the unique page identity. Each page row stores its current
+  normalized metadata and page fingerprint.
+- `sections` stores the ordered normalized sections for a page, including DOM
+  metadata, headings, text, child count, and the section fingerprint. The DOM
+  metadata remains available as factual crawl output even though fingerprinting
+  excludes it.
+- `(page_id, section_index)` is unique, and deleting a page cascades to its
+  sections.
+- Fingerprint and foreign-key columns are indexed for later comparison and
+  repository queries.
+
+```text
+pages 1 ─── * sections
+```
+
+This schema stores only the latest normalized state. Version history, change
+records, and CRUD repository operations remain later work.
 
 This separates:
 
