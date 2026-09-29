@@ -46,6 +46,9 @@ class SQLAlchemyRepository(Repository):
                     fingerprint=page_fingerprint,
                 )
                 session.add(row)
+            else:
+                row.sections.clear()
+                session.flush()
 
             row.title = page.title
             row.meta_description = page.meta_description
