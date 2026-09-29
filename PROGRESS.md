@@ -6,7 +6,7 @@ This file tracks Phase 1 implementation progress for the SoraMind Social Media A
 
 ## Current status
 
-Completed and merged pull requests: **14**
+Completed and merged pull requests: **16**
 
 ### Merged PRs
 
@@ -26,6 +26,8 @@ Completed and merged pull requests: **14**
 | #13 | ✅ Merged | Shared LLM provider abstraction and registry with OpenAI, Anthropic/Claude, and Groq adapters | 2026-09-29 |
 | #14 | ✅ Merged | Deterministic SHA-256 page and section fingerprints over normalized content, excluding DOM-only metadata and page-location fields | 2026-09-29 |
 | #15 | ✅ Merged | Backend-neutral database foundation with SQLite connection adapter, SQLAlchemy page/section schema, indexes, constraints, and database tests | 2026-09-29 |
+| #16 | ✅ Merged | Company Knowledge repository contract and SQLAlchemy current-state persistence with validated URL boundaries, domain↔row mapping utilities, upsert/read/delete behavior, and repository tests | 2026-09-29 |
+| #17 | ✅ Merged | Explicit SQLite connection pooling for file-backed databases with configurable QueuePool settings, StaticPool for in-memory SQLite, reuse tests, and docs | 2026-09-29 |
 
 ## Completed Phase 1 components
 
@@ -138,6 +140,30 @@ Completed and merged pull requests: **14**
 - [x] Shared in-memory SQLite test setup
 - [x] Database connection/schema tests
 
+### Repository persistence
+
+- [x] Repository contract
+- [x] SQLAlchemyRepository implementation
+- [x] Current-state page insert/upsert by validated URL
+- [x] Current-state page read
+- [x] Current page fingerprint lookup
+- [x] Current-state page delete
+- [x] Safe section replacement during upsert
+- [x] Domain ↔ SQLAlchemy row mapping utilities
+- [x] Repository URL boundary uses Pydantic `HttpUrl`
+- [x] Runtime URL validation before SQL TEXT conversion
+- [x] Repository tests
+
+### Connection pooling
+
+- [x] QueuePool for file-backed SQLite
+- [x] StaticPool retained for in-memory SQLite
+- [x] Configurable pool size
+- [x] Configurable max overflow
+- [x] Configurable pool checkout timeout
+- [x] Checked-in connection reuse tests
+- [x] Pooling behavior documented
+
 ### Normalization
 
 - [x] Normalizer contract
@@ -177,11 +203,10 @@ This keeps crawling and persistence deterministic while using the LLM only where
 
 ## Remaining Phase 1 work
 
-- [ ] Repository implementation
 - [ ] Version history for crawled page data
 - [ ] Deterministic page / section change detection
 - [ ] CompanyKnowledgeService orchestration
-- [ ] Tests for implemented components
+- [ ] Tests for remaining versioning / service / end-to-end components
 - [ ] End-to-end Phase 1 crawl → normalize → fingerprint → persist flow
 - [ ] Optional LLM-based interpretation of changed content
 
@@ -239,7 +264,9 @@ Fingerprinting                    ✅
    ↓
 Database foundation              ✅
    ↓
-Repository implementation         ⏳
+Repository implementation         ✅
+   ↓
+SQLite connection pooling         ✅
    ↓
 Version history                   ⏳
    ↓
