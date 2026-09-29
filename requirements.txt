@@ -4,3 +4,4 @@ unicode-sanity==0.1.0
 openai==3.19.2
 anthropic==1.8.0
 groq==1.7.0
+SQLAlchemy==2.0.54
