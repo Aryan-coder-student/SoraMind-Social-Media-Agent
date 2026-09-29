@@ -1,6 +1,7 @@
 """Tests for current-state Company Knowledge persistence."""
 
 import pytest
+from pydantic import HttpUrl, ValidationError
 from sqlalchemy.orm import Session, sessionmaker
 
 from app.database.connections.sqlite import SQLiteConnection
@@ -75,7 +76,7 @@ def test_save_and_get_page(
         section_fingerprints=["b" * 64],
     )
 
-    stored_page = repository.get_page(str(page.url))
+    stored_page = repository.get_page(page.url)
 
     assert stored_page is not None
     assert stored_page.model_dump(mode="json") == page.model_dump(mode="json")
@@ -84,7 +85,7 @@ def test_save_and_get_page(
 def test_get_page_returns_none_for_unknown_url(
     repository: SQLAlchemyRepository,
 ) -> None:
-    assert repository.get_page("https://soraminds.com/missing/") is None
+    assert repository.get_page(HttpUrl("https://soraminds.com/missing/")) is None
 
 
 def test_get_page_fingerprint(
@@ -98,14 +99,16 @@ def test_get_page_fingerprint(
         section_fingerprints=["b" * 64],
     )
 
-    assert repository.get_page_fingerprint(str(page.url)) == "a" * 64
+    assert repository.get_page_fingerprint(page.url) == "a" * 64
 
 
 def test_get_page_fingerprint_returns_none_for_unknown_url(
     repository: SQLAlchemyRepository,
 ) -> None:
     assert (
-        repository.get_page_fingerprint("https://soraminds.com/missing/")
+        repository.get_page_fingerprint(
+            HttpUrl("https://soraminds.com/missing/")
+        )
         is None
     )
 
@@ -148,11 +151,11 @@ def test_save_page_updates_existing_current_state(
         section_fingerprints=["d" * 64, "e" * 64],
     )
 
-    stored_page = repository.get_page(str(changed.url))
+    stored_page = repository.get_page(changed.url)
 
     assert stored_page is not None
     assert stored_page.model_dump(mode="json") == changed.model_dump(mode="json")
-    assert repository.get_page_fingerprint(str(changed.url)) == "c" * 64
+    assert repository.get_page_fingerprint(changed.url) == "c" * 64
 
 
 def test_save_page_replaces_removed_sections(
@@ -220,11 +223,33 @@ def test_delete_page_returns_true_and_removes_page(
         section_fingerprints=["b" * 64],
     )
 
-    assert repository.delete_page(str(page.url)) is True
-    assert repository.get_page(str(page.url)) is None
+    assert repository.delete_page(page.url) is True
+    assert repository.get_page(page.url) is None
 
 
 def test_delete_page_returns_false_for_unknown_url(
     repository: SQLAlchemyRepository,
 ) -> None:
-    assert repository.delete_page("https://soraminds.com/missing/") is False
+    assert (
+        repository.delete_page(HttpUrl("https://soraminds.com/missing/"))
+        is False
+    )
+
+
+@pytest.mark.parametrize(
+    "operation_name",
+    [
+        "get_page",
+        "get_page_fingerprint",
+        "delete_page",
+    ],
+)
+def test_repository_rejects_invalid_lookup_urls(
+    repository: SQLAlchemyRepository,
+    operation_name: str,
+) -> None:
+    operation = getattr(repository, operation_name)
+
+    with pytest.raises(ValidationError):
+        operation("not-a-url")
+
