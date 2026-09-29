@@ -82,7 +82,8 @@ app/
 │   ├── base.py
 │   └── operations/
 │       ├── __init__.py
-│       └── sqlite_operation.py
+│       ├── sqlalchemy.py
+│       └── utils.py
 │
 ├── infrastructure/
 │   └── browser/
@@ -129,7 +130,10 @@ CompanyKnowledgeService
     Repository Base
           │
           ▼
-Repository implementation
+ SQLAlchemyRepository
+          │
+          ▼
+ SQLAlchemy session
           │
           ▼
  DatabaseConnection
@@ -144,37 +148,62 @@ Repository implementation
 
 Defines the persistence contract.
 
-Conceptually:
+The current Company Knowledge repository contract exposes only the operations
+needed by the factual current-state pipeline:
 
 ```python
 class Repository(ABC):
     @abstractmethod
-    def save(self, data): ...
+    def save_page(
+        self,
+        page,
+        page_fingerprint,
+        section_fingerprints,
+    ): ...
 
     @abstractmethod
-    def get(self, id): ...
+    def get_page(self, url): ...
 
     @abstractmethod
-    def update(self, id, data): ...
+    def get_page_fingerprint(self, url): ...
 
     @abstractmethod
-    def delete(self, id): ...
+    def delete_page(self, url): ...
 ```
 
-### `app/repository/operations/sqlite_operation.py`
+### `app/repository/operations/sqlalchemy.py`
 
-Contains the SQLite implementation of the repository contract.
+Contains the relational repository implementation. It receives a SQLAlchemy
+session factory and delegates domain ↔ persistence conversion to
+`app/repository/operations/utils.py`.
 
-Later another backend can be added:
+`app/repository/operations/utils.py` contains the mapping helpers between factual
+domain models (`PageDocument` / `PageSection`) and persistence rows
+(`PageRow` / `SectionRow`). It also owns the URL boundary helper that validates
+repository URL inputs as Pydantic `HttpUrl` values before converting them to the
+SQL string representation.
+
+`save_page()` is a current-state upsert keyed by page URL:
 
 ```text
-repository/
-└── operations/
-    ├── sqlite_operation.py
-    └── postgres_operation.py
+new URL
+→ insert page + ordered sections
+
+existing URL
+→ update page metadata/fingerprint
+→ replace old current sections
+→ store new ordered sections/fingerprints
 ```
 
-Company Knowledge should not contain SQLite-specific logic.
+This operation layer is intentionally SQLAlchemy-specific rather than
+SQLite-specific, so the same repository can be reused with a PostgreSQL
+SQLAlchemy connection later. A document database can add a separate repository
+implementation such as `mongodb.py`.
+
+Company Knowledge does not import SQLAlchemy rows, sessions, or SQLite details.
+Repository lookup/delete methods accept validated `HttpUrl` domain values; the
+relational database still stores URLs as `TEXT`, because URL validation belongs
+at the application/domain boundary rather than in a database-specific column type.
 
 ### `app/database/base.py`
 
@@ -233,8 +262,9 @@ pages 1 ─── * sections
 MongoDB would use its own document/collection representation rather than being
 forced through the SQLAlchemy schema.
 
-This schema stores only the latest normalized state. Version history, change
-records, and CRUD repository operations remain later work.
+This schema stores only the latest normalized state. The repository now owns
+current-state insert/update/read/delete behavior. Version history and change
+records remain later work.
 
 This separates:
 
@@ -587,8 +617,16 @@ urls = crawler.discover(seed_url)
 for url in urls:
     page = discovery.extract(url)
     normalized = normalizer.normalize(page)
+    section_fingerprints = [
+        fingerprinter.fingerprint_section(section)
+        for section in normalized.sections
+    ]
     page_fingerprint = fingerprinter.fingerprint_page(normalized)
-    repository.save(normalized, page_fingerprint)
+    repository.save_page(
+        normalized,
+        page_fingerprint,
+        section_fingerprints,
+    )
 ```
 
 The service must not contain:
