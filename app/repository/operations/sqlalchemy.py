@@ -194,7 +194,7 @@ class SQLAlchemyRepository(Repository):
         self,
         url: HttpUrl,
     ) -> PageDocument | None:
-        """Return the page represented by its current immutable version."""
+        """Return the persisted content subset for the current version."""
         validated_url = url_to_string(url)
 
         with self._session_factory() as session:
