@@ -1,4 +1,4 @@
-"""SQLAlchemy schema for current normalized page and section state."""
+"""SQLAlchemy schema for version-backed Company Knowledge persistence."""
 
 from __future__ import annotations
 
@@ -22,7 +22,7 @@ class Base(DeclarativeBase):
 
 
 class PageRow(Base):
-    """Current normalized state and fingerprint for one page."""
+    """Stable page identity, lifecycle state, and current-version pointer."""
 
     __tablename__ = "pages"
 
@@ -36,79 +36,23 @@ class PageRow(Base):
         nullable=False,
         unique=True,
     )
-    title: Mapped[str | None] = mapped_column(Text, nullable=True)
-    meta_description: Mapped[str | None] = mapped_column(Text, nullable=True)
-    canonical_url: Mapped[str | None] = mapped_column(Text, nullable=True)
-    fingerprint: Mapped[str] = mapped_column(
-        String(64),
-        nullable=False,
-        index=True,
-    )
     is_active: Mapped[bool] = mapped_column(
         Boolean,
         nullable=False,
         default=True,
     )
-    sections: Mapped[list["SectionRow"]] = relationship(
-        back_populates="page",
-        cascade="all, delete-orphan",
-        order_by="SectionRow.section_index",
-        passive_deletes=True,
+    current_version_id: Mapped[int | None] = mapped_column(
+        ForeignKey("page_versions.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
     )
     versions: Mapped[list["PageVersionRow"]] = relationship(
         back_populates="page",
         cascade="all, delete-orphan",
         order_by="PageVersionRow.version_number",
         passive_deletes=True,
+        foreign_keys="PageVersionRow.page_id",
     )
-
-
-class SectionRow(Base):
-    """Current normalized state and fingerprint for one page section."""
-
-    __tablename__ = "sections"
-    __table_args__ = (
-        UniqueConstraint(
-            "page_id",
-            "section_index",
-            name="uq_sections_page_index",
-        ),
-    )
-
-    id: Mapped[int] = mapped_column(
-        Integer,
-        primary_key=True,
-        autoincrement=True,
-    )
-    page_id: Mapped[int] = mapped_column(
-        ForeignKey("pages.id", ondelete="CASCADE"),
-        nullable=False,
-        index=True,
-    )
-    section_index: Mapped[int] = mapped_column(Integer, nullable=False)
-    dom_id: Mapped[str | None] = mapped_column(Text, nullable=True)
-    classes: Mapped[list[str]] = mapped_column(
-        JSON,
-        nullable=False,
-        default=list,
-    )
-    headings: Mapped[list[dict[str, object]]] = mapped_column(
-        JSON,
-        nullable=False,
-        default=list,
-    )
-    text: Mapped[str] = mapped_column(Text, nullable=False)
-    child_count: Mapped[int] = mapped_column(
-        Integer,
-        nullable=False,
-        default=0,
-    )
-    fingerprint: Mapped[str] = mapped_column(
-        String(64),
-        nullable=False,
-        index=True,
-    )
-    page: Mapped[PageRow] = relationship(back_populates="sections")
 
 
 class PageVersionRow(Base):
@@ -133,13 +77,20 @@ class PageVersionRow(Base):
     title: Mapped[str | None] = mapped_column(Text, nullable=True)
     meta_description: Mapped[str | None] = mapped_column(Text, nullable=True)
     canonical_url: Mapped[str | None] = mapped_column(Text, nullable=True)
-    fingerprint: Mapped[str] = mapped_column(String(64), nullable=False)
+    fingerprint: Mapped[str] = mapped_column(
+        String(64),
+        nullable=False,
+        index=True,
+    )
     captured_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,
         default=lambda: datetime.now(UTC),
     )
-    page: Mapped[PageRow] = relationship(back_populates="versions")
+    page: Mapped[PageRow] = relationship(
+        back_populates="versions",
+        foreign_keys=[page_id],
+    )
     sections: Mapped[list["SectionVersionRow"]] = relationship(
         back_populates="page_version",
         cascade="all, delete-orphan",
@@ -169,5 +120,9 @@ class SectionVersionRow(Base):
     )
     text: Mapped[str] = mapped_column(Text, nullable=False)
     child_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
-    fingerprint: Mapped[str] = mapped_column(String(64), nullable=False)
+    fingerprint: Mapped[str] = mapped_column(
+        String(64),
+        nullable=False,
+        index=True,
+    )
     page_version: Mapped[PageVersionRow] = relationship(back_populates="sections")
