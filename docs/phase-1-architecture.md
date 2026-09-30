@@ -286,10 +286,10 @@ relational model can be reused by another SQLAlchemy backend such as PostgreSQL.
 - `pages.is_active` identifies URLs present in the latest completed crawl.
 - `pages.current_version_id` points to the immutable version currently exposed
   as the page's current Company Knowledge state.
-- `page_versions` stores all page content and page fingerprints with a per-page
-  version number and timezone-aware UTC capture time.
-- `section_versions` stores the complete ordered section snapshot for one page
-  version; `(page_version_id, section_index)` is unique.
+- `page_versions` stores only versioned Company Knowledge fields: title,
+  meta description, page fingerprint, version number, and capture time.
+- `section_versions` stores only section position, headings, normalized text,
+  and section fingerprint; `(page_version_id, section_index)` is unique.
 - Current page content is not duplicated in `pages` or a separate current
   `sections` table.
 - Fingerprint and foreign-key columns are indexed for later comparison and
@@ -309,6 +309,38 @@ forced through the SQLAlchemy schema.
 `pages` owns identity and lifecycle only. `page_versions` and
 `section_versions` are the single source of truth for both current content and
 historical content.
+
+### Persisted version fields
+
+```text
+pages
+├── id
+├── url
+├── is_active
+└── current_version_id
+
+page_versions
+├── id
+├── page_id
+├── version_number
+├── title
+├── meta_description
+├── fingerprint
+└── captured_at
+
+section_versions
+├── id
+├── page_version_id
+├── section_index
+├── headings
+├── text
+└── fingerprint
+```
+
+`section_versions.fingerprint` is retained for planned section-level change
+detection. Canonical URL, DOM id, CSS classes, and direct child count remain in
+the extraction model when useful during crawling, but they are not persisted
+because no current or planned persistence behavior uses them.
 
 ### Version creation
 
@@ -332,10 +364,11 @@ always snapshots the complete normalized section set, which preserves added,
 removed, and changed sections across versions. An identical fingerprint never
 creates another version.
 
-Canonical URL and DOM-only metadata are excluded from the content fingerprint.
-When only those values change, the repository keeps the existing immutable
-current version. Those metadata-only observations are not persisted as a new
-content version in Phase 1.
+Canonical URL and DOM-only metadata are extraction-time observations only.
+They are excluded from fingerprints and are not persisted in Company Knowledge
+history. The persistence layer intentionally keeps only fields used by current
+knowledge retrieval, page-level versioning, and planned section-level change
+detection.
 
 ### Schema migration requirement
 
