@@ -4,7 +4,7 @@ from datetime import UTC
 
 from pydantic import HttpUrl, TypeAdapter
 
-from app.database.schemas.sqlalchemy import PageVersionRow, SectionVersionRow
+from app.database.schemas.version import PageVersionRow, SectionVersionRow
 from app.modules.company_knowledge.models.page import (
     Heading,
     PageDocument,
