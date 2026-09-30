@@ -18,7 +18,7 @@ def make_section(
     return SectionVersion(
         index=index,
         headings=headings,
-        text=text or heading or "section",
+        text=text if text is not None else heading or "section",
         fingerprint=fingerprint,
     )
 
