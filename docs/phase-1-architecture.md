@@ -75,6 +75,9 @@ app/
 │   │   └── sqlite.py
 │   └── schemas/
 │       ├── __init__.py
+│       ├── base.py
+│       ├── page.py
+│       ├── version.py
 │       └── sqlalchemy.py
 │
 ├── repository/
@@ -267,11 +270,20 @@ database/connections/
 └── mongodb.py      ← later
 ```
 
-### `app/database/schemas/sqlalchemy.py`
+### `app/database/schemas/`
 
-Defines the current-state and historical relational mappings. The schema is
-named for SQLAlchemy rather than SQLite because the same relational mapping can
-be reused by another SQLAlchemy backend such as PostgreSQL.
+SQLAlchemy schema definitions are split by responsibility instead of keeping all
+ORM models in one file:
+
+- `base.py` defines the shared declarative `Base`.
+- `page.py` defines stable page identity/lifecycle storage (`PageRow`).
+- `version.py` defines immutable page/section version storage
+  (`PageVersionRow` / `SectionVersionRow`).
+- `sqlalchemy.py` remains a small compatibility export module so existing
+  imports do not need to break immediately.
+
+These mappings remain SQLAlchemy-specific rather than SQLite-specific, so the
+relational model can be reused by another SQLAlchemy backend such as PostgreSQL.
 
 - `pages.url` is the stable unique page identity.
 - `pages.is_active` identifies URLs present in the latest completed crawl.
