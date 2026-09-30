@@ -112,9 +112,7 @@ app/
         ├── fingerprint/
         │   ├── base.py
         │   └── sha256.py
-        ├── change_detection/
-        │   ├── __init__.py
-        │   └── sections.py
+        ├── section_changes.py
         ├── extraction/
         │   ├── base.py
         │   └── extractor.py
@@ -736,8 +734,9 @@ The classifier consumes immutable `SectionVersion` snapshots. It does not read
 the database directly, modify version history, perform fuzzy matching, or add
 another abstraction layer around the matching rules.
 
-The `change_detection/` package remains one small capability-focused package
-that mirrors the test layout. Matching logic stays in `sections.py`; result
+Section matching is small enough to live in one explicit module:
+`company_knowledge/section_changes.py`. A dedicated subpackage would add an
+extra directory and `__init__.py` without adding a real boundary yet. Result
 models stay with the other domain models in `models/change.py`.
 
 ## 8. Optional LLM change interpretation
