@@ -77,8 +77,7 @@ app/
 │       ├── __init__.py
 │       ├── base.py
 │       ├── page.py
-│       ├── version.py
-│       └── sqlalchemy.py
+│       └── version.py
 │
 ├── repository/
 │   ├── __init__.py
@@ -279,8 +278,6 @@ ORM models in one file:
 - `page.py` defines stable page identity/lifecycle storage (`PageRow`).
 - `version.py` defines immutable page/section version storage
   (`PageVersionRow` / `SectionVersionRow`).
-- `sqlalchemy.py` remains a small compatibility export module so existing
-  imports do not need to break immediately.
 
 These mappings remain SQLAlchemy-specific rather than SQLite-specific, so the
 relational model can be reused by another SQLAlchemy backend such as PostgreSQL.
