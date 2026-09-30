@@ -5,7 +5,8 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload, sessionmaker
 from sqlalchemy.sql import Select
 
-from app.database.schemas.sqlalchemy import PageRow, PageVersionRow
+from app.database.schemas.page import PageRow
+from app.database.schemas.version import PageVersionRow
 from app.modules.company_knowledge.models.page import PageDocument
 from app.modules.company_knowledge.models.version import (
     PageVersion,
