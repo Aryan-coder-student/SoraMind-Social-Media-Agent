@@ -419,3 +419,29 @@ def test_unchanged_fingerprint_keeps_current_version_immutable(
     assert stored_page is not None
     assert stored_page.canonical_url == page.canonical_url
     assert stored_page.sections[0].id == "hero"
+
+
+def test_current_page_read_rejects_foreign_version_pointer(
+    repository: SQLAlchemyRepository,
+    session_factory: sessionmaker[Session],
+) -> None:
+    first = make_page(url="https://soraminds.com/first/")
+    second = make_page(url="https://soraminds.com/second/")
+
+    save(repository, first, "a" * 64, ["b" * 64])
+    save(repository, second, "c" * 64, ["d" * 64])
+
+    with session_factory() as session:
+        first_row = session.scalar(
+            select(PageRow).where(PageRow.url == str(first.url))
+        )
+        second_row = session.scalar(
+            select(PageRow).where(PageRow.url == str(second.url))
+        )
+        assert first_row is not None
+        assert second_row is not None
+        first_row.current_version_id = second_row.current_version_id
+        session.commit()
+
+    assert repository.get_page(first.url) is None
+    assert repository.get_page_fingerprint(first.url) is None
