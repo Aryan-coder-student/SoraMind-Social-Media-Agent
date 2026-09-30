@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import QueuePool, StaticPool
 
 from app.database.base import DatabaseConnection
-from app.database.schemas.sqlalchemy import Base
+from app.database.schemas import Base
 from app.settings import (
     SQLALCHEMY_MAX_OVERFLOW,
     SQLALCHEMY_POOL_SIZE,
