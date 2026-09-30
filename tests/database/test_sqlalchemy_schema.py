@@ -1,12 +1,12 @@
-"""Tests for the relational SQLAlchemy Company Knowledge schema."""
+"""Tests for the relational SQLAlchemy Company Knowledge page identity schema."""
 
 import pytest
-from sqlalchemy import delete, inspect
+from sqlalchemy import inspect
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, sessionmaker
 
 from app.database.connections.sqlite import SQLiteConnection
-from app.database.schemas.sqlalchemy import PageRow, SectionRow
+from app.database.schemas.sqlalchemy import PageRow
 
 
 @pytest.fixture
@@ -28,122 +28,24 @@ def session_factory(
 def make_page(
     *,
     url: str = "https://soraminds.com/about/",
-    title: str | None = "About SoraMinds",
-    meta_description: str | None = "Learn about SoraMinds",
-    canonical_url: str | None = "https://soraminds.com/about/",
-    fingerprint: str = "a" * 64,
 ) -> PageRow:
-    return PageRow(
-        url=url,
-        title=title,
-        meta_description=meta_description,
-        canonical_url=canonical_url,
-        fingerprint=fingerprint,
-    )
+    return PageRow(url=url)
 
 
-def make_section(
-    *,
-    section_index: int = 0,
-    dom_id: str | None = "hero",
-    classes: list[str] | None = None,
-    headings: list[dict[str, object]] | None = None,
-    text: str = "SoraMinds is ...",
-    child_count: int = 5,
-    fingerprint: str = "b" * 64,
-) -> SectionRow:
-    return SectionRow(
-        section_index=section_index,
-        dom_id=dom_id,
-        classes=classes if classes is not None else ["hero", "container"],
-        headings=(
-            headings
-            if headings is not None
-            else [{"level": 1, "text": "About SoraMinds"}]
-        ),
-        text=text,
-        child_count=child_count,
-        fingerprint=fingerprint,
-    )
-
-
-def test_persists_page_with_nullable_metadata(
-    session_factory: sessionmaker[Session],
+def test_page_stores_identity_and_lifecycle_only(
+    connection: SQLiteConnection,
 ) -> None:
-    page = make_page(
-        title=None,
-        meta_description=None,
-        canonical_url=None,
-    )
+    columns = {
+        column["name"]
+        for column in inspect(connection.connect()).get_columns("pages")
+    }
 
-    with session_factory() as session:
-        session.add(page)
-        session.commit()
-        page_id = page.id
-
-    with session_factory() as session:
-        stored_page = session.get(PageRow, page_id)
-
-    assert stored_page is not None
-    assert stored_page.url == "https://soraminds.com/about/"
-    assert stored_page.title is None
-    assert stored_page.meta_description is None
-    assert stored_page.canonical_url is None
-    assert stored_page.fingerprint == "a" * 64
-
-
-def test_persists_sections_through_page_relationship(
-    session_factory: sessionmaker[Session],
-) -> None:
-    page = make_page()
-    page.sections.append(make_section(dom_id=None))
-
-    with session_factory() as session:
-        session.add(page)
-        session.commit()
-        page_id = page.id
-
-    with session_factory() as session:
-        stored_page = session.get(PageRow, page_id)
-        assert stored_page is not None
-        stored_section = stored_page.sections[0]
-
-        assert stored_section.page is stored_page
-        assert stored_section.dom_id is None
-        assert stored_section.classes == ["hero", "container"]
-        assert stored_section.headings == [
-            {"level": 1, "text": "About SoraMinds"}
-        ]
-        assert stored_section.text == "SoraMinds is ..."
-        assert stored_section.child_count == 5
-        assert stored_section.fingerprint == "b" * 64
-
-
-def test_returns_sections_in_section_index_order(
-    session_factory: sessionmaker[Session],
-) -> None:
-    page = make_page()
-    page.sections.extend(
-        [
-            make_section(section_index=2, text="Third"),
-            make_section(section_index=0, text="First"),
-            make_section(section_index=1, text="Second"),
-        ]
-    )
-
-    with session_factory() as session:
-        session.add(page)
-        session.commit()
-        page_id = page.id
-
-    with session_factory() as session:
-        stored_page = session.get(PageRow, page_id)
-        assert stored_page is not None
-        assert [section.section_index for section in stored_page.sections] == [
-            0,
-            1,
-            2,
-        ]
+    assert columns == {
+        "id",
+        "url",
+        "is_active",
+        "current_version_id",
+    }
 
 
 def test_page_url_must_be_unique(
@@ -156,78 +58,27 @@ def test_page_url_must_be_unique(
             session.commit()
 
 
-def test_page_section_index_must_be_unique(
-    session_factory: sessionmaker[Session],
-) -> None:
-    page = make_page()
-    page.sections.extend([make_section(), make_section()])
-
-    with session_factory() as session:
-        session.add(page)
-
-        with pytest.raises(IntegrityError):
-            session.commit()
-
-
-def test_deleting_page_cascades_to_sections(
-    session_factory: sessionmaker[Session],
-) -> None:
-    page = make_page()
-    page.sections.append(make_section())
-
-    with session_factory() as session:
-        session.add(page)
-        session.commit()
-        page_id = page.id
-        section_id = page.sections[0].id
-        session.execute(delete(PageRow).where(PageRow.id == page_id))
-        session.commit()
-
-    with session_factory() as session:
-        assert session.get(SectionRow, section_id) is None
-
-
-def test_json_and_numeric_defaults_are_independent(
-    session_factory: sessionmaker[Session],
-) -> None:
-    page = make_page()
-    page.sections.extend(
-        [
-            SectionRow(
-                section_index=0,
-                text="First",
-                fingerprint="b" * 64,
-            ),
-            SectionRow(
-                section_index=1,
-                text="Second",
-                fingerprint="c" * 64,
-            ),
-        ]
-    )
-
-    with session_factory() as session:
-        session.add(page)
-        session.commit()
-        assert page.sections[0].classes == []
-        assert page.sections[0].headings == []
-        assert page.sections[0].child_count == 0
-        assert page.sections[0].classes is not page.sections[1].classes
-        assert page.sections[0].headings is not page.sections[1].headings
-
-
-def test_schema_creates_required_indexes(
+def test_current_version_id_references_page_versions(
     connection: SQLiteConnection,
 ) -> None:
-    page_indexes = {
-        tuple(index["column_names"])
-        for index in inspect(connection.connect()).get_indexes("pages")
-    }
-    section_indexes = {
-        tuple(index["column_names"])
-        for index in inspect(connection.connect()).get_indexes("sections")
+    foreign_keys = inspect(connection.connect()).get_foreign_keys("pages")
+
+    assert any(
+        key["constrained_columns"] == ["current_version_id"]
+        and key["referred_table"] == "page_versions"
+        for key in foreign_keys
+    )
+
+
+def test_page_identity_has_no_duplicate_current_content_columns(
+    connection: SQLiteConnection,
+) -> None:
+    columns = {
+        column["name"]
+        for column in inspect(connection.connect()).get_columns("pages")
     }
 
-    assert ("fingerprint",) in page_indexes
-    assert ("page_id",) in section_indexes
-    assert ("fingerprint",) in section_indexes
+    assert "title" not in columns
+    assert "meta_description" not in columns
+    assert "canonical_url" not in columns
+    assert "fingerprint" not in columns
