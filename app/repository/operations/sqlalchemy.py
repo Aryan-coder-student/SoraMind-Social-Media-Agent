@@ -169,11 +169,6 @@ class SQLAlchemyRepository(Repository):
             version_number=version_number,
             title=page.title,
             meta_description=page.meta_description,
-            canonical_url=(
-                url_to_string(page.canonical_url)
-                if page.canonical_url is not None
-                else None
-            ),
             fingerprint=page_fingerprint,
             sections=[
                 section_to_version_row(section, fingerprint)
