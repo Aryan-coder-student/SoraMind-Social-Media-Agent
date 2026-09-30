@@ -40,11 +40,9 @@ def _nearest_section(
     matching_sections: Sequence[SectionVersion],
 ) -> SectionVersion | None:
     """Return the closest candidate, or None when there is no match."""
-    if not matching_sections:
-        return None
-
     return min(
         matching_sections,
+        default=None,
         key=lambda section: (
             abs(section.index - reference_section.index),
             section.index,
