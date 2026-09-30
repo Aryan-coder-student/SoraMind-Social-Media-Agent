@@ -39,7 +39,6 @@ class PageVersionRow(Base):
     version_number: Mapped[int] = mapped_column(Integer, nullable=False)
     title: Mapped[str | None] = mapped_column(Text, nullable=True)
     meta_description: Mapped[str | None] = mapped_column(Text, nullable=True)
-    canonical_url: Mapped[str | None] = mapped_column(Text, nullable=True)
     fingerprint: Mapped[str] = mapped_column(
         String(64),
         nullable=False,
@@ -81,15 +80,12 @@ class SectionVersionRow(Base):
         index=True,
     )
     section_index: Mapped[int] = mapped_column(Integer, nullable=False)
-    dom_id: Mapped[str | None] = mapped_column(Text, nullable=True)
-    classes: Mapped[list[str]] = mapped_column(JSON, nullable=False, default=list)
     headings: Mapped[list[dict[str, object]]] = mapped_column(
         JSON,
         nullable=False,
         default=list,
     )
     text: Mapped[str] = mapped_column(Text, nullable=False)
-    child_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     fingerprint: Mapped[str] = mapped_column(
         String(64),
         nullable=False,
