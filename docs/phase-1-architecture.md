@@ -724,8 +724,9 @@ preferring the closest section position.
 
 Section position alone is not treated as identity. A different section appearing
 at the same index is therefore reported as removed + added rather than guessed to
-be a modification. Sections without headings are also only classified as changed
-when their exact fingerprint is unchanged; otherwise they remain unmatched.
+be a modification. A section without headings can only be matched as unchanged by
+its fingerprint; if its content changes, it remains unmatched and is reported as
+removed + added.
 
 The classifier trusts persisted `SectionVersion` invariants instead of repeating
 database constraints or runtime type checks.
