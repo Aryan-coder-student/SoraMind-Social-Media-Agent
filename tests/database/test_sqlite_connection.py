@@ -42,7 +42,7 @@ def test_creates_in_memory_sqlite_engine() -> None:
         database.close()
 
 
-def test_create_tables_creates_page_and_section_tables(
+def test_create_tables_creates_company_knowledge_tables(
     connection: SQLiteConnection,
 ) -> None:
     assert set(inspect(connection.connect()).get_table_names()) == {
@@ -98,7 +98,6 @@ def test_in_memory_database_uses_one_shared_connection() -> None:
         assert isinstance(engine.pool, StaticPool)
     finally:
         database.close()
-
 
 
 def test_file_database_uses_queue_pool(tmp_path) -> None:
