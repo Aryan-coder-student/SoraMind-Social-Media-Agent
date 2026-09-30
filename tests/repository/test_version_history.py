@@ -445,3 +445,29 @@ def test_current_page_read_rejects_foreign_version_pointer(
 
     assert repository.get_page(first.url) is None
     assert repository.get_page_fingerprint(first.url) is None
+
+
+def test_save_rejects_foreign_current_version_pointer(
+    repository: SQLAlchemyRepository,
+    session_factory: sessionmaker[Session],
+) -> None:
+    first = make_page(url="https://soraminds.com/first/")
+    second = make_page(url="https://soraminds.com/second/")
+
+    save(repository, first, "a" * 64, ["b" * 64])
+    save(repository, second, "c" * 64, ["d" * 64])
+
+    with session_factory() as session:
+        first_row = session.scalar(
+            select(PageRow).where(PageRow.url == str(first.url))
+        )
+        second_row = session.scalar(
+            select(PageRow).where(PageRow.url == str(second.url))
+        )
+        assert first_row is not None
+        assert second_row is not None
+        first_row.current_version_id = second_row.current_version_id
+        session.commit()
+
+    with pytest.raises(RuntimeError, match="does not belong"):
+        save(repository, first, "e" * 64, ["f" * 64])
