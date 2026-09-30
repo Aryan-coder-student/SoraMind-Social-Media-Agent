@@ -7,7 +7,7 @@ from sqlalchemy.pool import QueuePool, StaticPool
 
 from app.database.base import DatabaseConnection
 from app.database.connections.sqlite import SQLiteConnection
-from app.database.schemas.sqlalchemy import PageRow
+from app.database.schemas.page import PageRow
 from app.settings import (
     SQLALCHEMY_MAX_OVERFLOW,
     SQLALCHEMY_POOL_SIZE,
