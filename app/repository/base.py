@@ -1,4 +1,4 @@
-"""Repository contract for current Company Knowledge persistence."""
+"""Repository contract for current Company Knowledge and immutable history."""
 
 from abc import ABC, abstractmethod
 
@@ -9,7 +9,7 @@ from app.modules.company_knowledge.models.version import PageVersion, SavePageRe
 
 
 class Repository(ABC):
-    """Persist and retrieve the current normalized Company Knowledge state."""
+    """Persist current normalized state and meaningful content versions."""
 
     @abstractmethod
     def save_page(

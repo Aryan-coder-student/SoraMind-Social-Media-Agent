@@ -131,7 +131,10 @@ def test_version_numbers_increment_per_page(repository: SQLAlchemyRepository) ->
     save(repository, make_page(title="Second"), "b" * 64, ["2" * 64])
     save(repository, make_page(title="Third"), "c" * 64, ["3" * 64])
 
-    assert [item.version_number for item in repository.get_page_versions(page.url)] == [1, 2, 3]
+    assert [
+        item.version_number
+        for item in repository.get_page_versions(page.url)
+    ] == [1, 2, 3]
 
 
 def test_different_pages_have_independent_version_numbers(
@@ -176,10 +179,21 @@ def test_removed_section_remains_only_in_old_version(
 ) -> None:
     page = make_page(sections=[make_section(0, "First"), make_section(1, "Removed")])
     save(repository, page, "a" * 64, ["1" * 64, "2" * 64])
-    save(repository, make_page(sections=[make_section(0, "First")]), "b" * 64, ["1" * 64])
+    save(
+        repository,
+        make_page(sections=[make_section(0, "First")]),
+        "b" * 64,
+        ["1" * 64],
+    )
 
-    assert [item.text for item in repository.get_page_version(page.url, 1).sections] == ["First", "Removed"]
-    assert [item.text for item in repository.get_page_version(page.url, 2).sections] == ["First"]
+    assert [
+        item.text
+        for item in repository.get_page_version(page.url, 1).sections
+    ] == ["First", "Removed"]
+    assert [
+        item.text
+        for item in repository.get_page_version(page.url, 2).sections
+    ] == ["First"]
 
 
 def test_changed_section_fingerprint_is_in_new_version(
@@ -200,7 +214,10 @@ def test_get_page_versions_returns_version_number_order(
     save(repository, page, "a" * 64, ["1" * 64])
     save(repository, make_page(title="Second"), "b" * 64, ["2" * 64])
 
-    assert [item.version_number for item in repository.get_page_versions(page.url)] == [1, 2]
+    assert [
+        item.version_number
+        for item in repository.get_page_versions(page.url)
+    ] == [1, 2]
 
 
 def test_get_page_version_returns_exact_snapshot(

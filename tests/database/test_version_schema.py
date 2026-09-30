@@ -105,7 +105,10 @@ def test_version_relationships_are_ordered(
     with session_factory() as session:
         stored_page = session.get(PageRow, page_id)
         assert [item.version_number for item in stored_page.versions] == [1, 2]
-        assert [item.section_index for item in stored_page.versions[1].sections] == [0, 1, 2]
+        assert [
+            item.section_index
+            for item in stored_page.versions[1].sections
+        ] == [0, 1, 2]
 
 
 def test_deleting_page_cascades_to_all_version_rows(

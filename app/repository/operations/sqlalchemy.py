@@ -1,11 +1,11 @@
 """SQLAlchemy persistence for current Company Knowledge and page history."""
 
+from pydantic import HttpUrl
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session, selectinload, sessionmaker
+from sqlalchemy.sql import Select
 
 from app.database.schemas.sqlalchemy import PageRow, PageVersionRow
-from pydantic import HttpUrl
-
 from app.modules.company_knowledge.models.page import PageDocument
 from app.modules.company_knowledge.models.version import (
     PageVersion,
@@ -317,7 +317,9 @@ class SQLAlchemyRepository(Repository):
                 return [string_to_url(row.url) for row in missing_rows]
 
     @staticmethod
-    def _version_query(validated_url: str):
+    def _version_query(
+        validated_url: str,
+    ) -> Select[tuple[PageVersionRow]]:
         """Build the eager-loaded query shared by history reads."""
         return (
             select(PageVersionRow)

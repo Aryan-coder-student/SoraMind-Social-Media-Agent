@@ -1,9 +1,8 @@
 """Domain models for immutable Company Knowledge page versions."""
 
-from datetime import datetime
 from enum import Enum
 
-from pydantic import BaseModel, ConfigDict, Field, HttpUrl
+from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, HttpUrl
 
 from app.modules.company_knowledge.models.page import Heading
 
@@ -51,5 +50,5 @@ class PageVersion(BaseModel):
     meta_description: str | None = None
     canonical_url: HttpUrl | None = None
     fingerprint: str
-    captured_at: datetime
+    captured_at: AwareDatetime
     sections: list[SectionVersion] = Field(default_factory=list)
