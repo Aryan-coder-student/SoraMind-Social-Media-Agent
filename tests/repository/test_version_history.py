@@ -8,7 +8,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session, sessionmaker
 
 from app.database.connections.sqlite import SQLiteConnection
-from app.database.schemas.sqlalchemy import PageRow
+from app.database.schemas.sqlalchemy import PageRow, PageVersionRow
 from app.modules.company_knowledge.models.page import Heading, PageDocument, PageSection
 from app.modules.company_knowledge.models.version import SavePageStatus
 from app.repository.operations import sqlalchemy as repository_module
@@ -85,6 +85,26 @@ def test_first_saved_page_creates_version_one(repository: SQLAlchemyRepository) 
     assert result.version_number == 1
 
 
+def test_new_page_points_to_version_one(
+    repository: SQLAlchemyRepository,
+    session_factory: sessionmaker[Session],
+) -> None:
+    page = make_page()
+    save(repository, page, "a" * 64, ["b" * 64])
+
+    with session_factory() as session:
+        stored_page = session.scalar(select(PageRow))
+        assert stored_page is not None
+        current_version = session.get(
+            PageVersionRow,
+            stored_page.current_version_id,
+        )
+
+    assert current_version is not None
+    assert current_version.version_number == 1
+    assert current_version.fingerprint == "a" * 64
+
+
 def test_version_one_contains_all_section_snapshots(
     repository: SQLAlchemyRepository,
 ) -> None:
@@ -115,14 +135,25 @@ def test_identical_fingerprint_creates_no_version_two(
 
 def test_changed_fingerprint_creates_version_two(
     repository: SQLAlchemyRepository,
+    session_factory: sessionmaker[Session],
 ) -> None:
     page = make_page()
     save(repository, page, "a" * 64, ["b" * 64])
 
+    with session_factory() as session:
+        first_version_id = session.scalar(select(PageRow.current_version_id))
+
     result = save(repository, make_page(title="Updated"), "c" * 64, ["d" * 64])
+
+    with session_factory() as session:
+        second_version_id = session.scalar(select(PageRow.current_version_id))
+        current_version = session.get(PageVersionRow, second_version_id)
 
     assert result.status is SavePageStatus.CHANGED
     assert result.version_number == 2
+    assert second_version_id != first_version_id
+    assert current_version is not None
+    assert current_version.version_number == 2
 
 
 def test_version_numbers_increment_per_page(repository: SQLAlchemyRepository) -> None:
@@ -360,8 +391,9 @@ def test_deactivation_keeps_historical_versions(
     assert len(repository.get_page_versions(page.url)) == 1
 
 
-def test_unchanged_content_refreshes_current_metadata_without_new_version(
+def test_unchanged_fingerprint_keeps_current_version_immutable(
     repository: SQLAlchemyRepository,
+    session_factory: sessionmaker[Session],
 ) -> None:
     page = make_page()
     refreshed = make_page(
@@ -370,9 +402,19 @@ def test_unchanged_content_refreshes_current_metadata_without_new_version(
     )
     save(repository, page, "a" * 64, ["b" * 64])
 
+    with session_factory() as session:
+        original_version_id = session.scalar(select(PageRow.current_version_id))
+
     result = save(repository, refreshed, "a" * 64, ["b" * 64])
+
+    with session_factory() as session:
+        current_version_id = session.scalar(select(PageRow.current_version_id))
+
+    stored_page = repository.get_page(page.url)
 
     assert result.status is SavePageStatus.UNCHANGED
     assert len(repository.get_page_versions(page.url)) == 1
-    assert repository.get_page(page.url).canonical_url == refreshed.canonical_url
-    assert repository.get_page(page.url).sections[0].id == "new-dom-id"
+    assert current_version_id == original_version_id
+    assert stored_page is not None
+    assert stored_page.canonical_url == page.canonical_url
+    assert stored_page.sections[0].id == "hero"
