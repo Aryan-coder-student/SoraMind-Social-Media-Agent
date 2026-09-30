@@ -1,12 +1,16 @@
-"""Deterministic section matching and change classification."""
+"""Deterministic section change classification."""
 
 from collections.abc import Sequence
 
-from app.modules.company_knowledge.models.change import (
+from app.modules.company_knowledge.models.section_change import (
     SectionChange,
     SectionChangeSet,
 )
 from app.modules.company_knowledge.models.version import SectionVersion
+from app.modules.company_knowledge.section_change_utils import (
+    find_same_fingerprint_section,
+    find_same_heading_section,
+)
 
 
 def classify_section_changes(
@@ -14,117 +18,79 @@ def classify_section_changes(
     current_sections: Sequence[SectionVersion],
 ) -> SectionChangeSet:
     """Classify added, removed, and changed sections between page versions."""
-    remaining_previous = sorted(
-        previous_sections,
-        key=lambda section: section.index,
-    )
-    remaining_current = sorted(
-        current_sections,
-        key=lambda section: section.index,
-    )
+    remaining_previous = list(previous_sections)
+    remaining_current = list(current_sections)
 
-    _remove_unchanged_sections(
+    remaining_previous, remaining_current = _exclude_unchanged_sections(
         remaining_previous,
         remaining_current,
     )
 
-    changed_sections = _match_changed_sections(
-        remaining_previous,
-        remaining_current,
+    changed_sections, remaining_previous, remaining_current = (
+        _extract_changed_sections(
+            remaining_previous,
+            remaining_current,
+        )
     )
 
-    return SectionChangeSet(
+    change_set = SectionChangeSet(
         added=tuple(remaining_current),
         removed=tuple(remaining_previous),
-        changed=tuple(
-            sorted(
-                changed_sections,
-                key=lambda change: change.after.index,
-            )
-        ),
+        changed=tuple(changed_sections),
     )
+    return change_set
 
 
-def _remove_unchanged_sections(
+def _exclude_unchanged_sections(
     previous_sections: list[SectionVersion],
     current_sections: list[SectionVersion],
-) -> None:
-    """Remove sections with identical fingerprints from both working lists."""
-    for previous_section in previous_sections.copy():
-        matching_sections = [
-            current_section
-            for current_section in current_sections
-            if current_section.fingerprint == previous_section.fingerprint
-        ]
-        if not matching_sections:
-            continue
+) -> tuple[list[SectionVersion], list[SectionVersion]]:
+    """Return sections left after identical fingerprints are paired."""
+    unmatched_previous: list[SectionVersion] = []
+    unmatched_current = list(current_sections)
 
-        current_section = _nearest_section(
+    for previous_section in previous_sections:
+        current_section = find_same_fingerprint_section(
             previous_section,
-            matching_sections,
+            unmatched_current,
         )
-        previous_sections.remove(previous_section)
-        current_sections.remove(current_section)
+
+        if current_section is None:
+            unmatched_previous.append(previous_section)
+        else:
+            unmatched_current.remove(current_section)
+
+    return unmatched_previous, unmatched_current
 
 
-def _match_changed_sections(
+def _extract_changed_sections(
     previous_sections: list[SectionVersion],
     current_sections: list[SectionVersion],
-) -> list[SectionChange]:
-    """Match changed sections only when their heading identity is preserved."""
-    changes: list[SectionChange] = []
+) -> tuple[
+    list[SectionChange],
+    list[SectionVersion],
+    list[SectionVersion],
+]:
+    """Pair changed sections that keep the same heading identity."""
+    changed_sections: list[SectionChange] = []
+    unmatched_previous: list[SectionVersion] = []
+    unmatched_current = list(current_sections)
 
-    for previous_section in previous_sections.copy():
-        heading_signature = _heading_signature(previous_section)
-        if heading_signature is None:
-            continue
-
-        matching_sections = [
-            current_section
-            for current_section in current_sections
-            if _heading_signature(current_section) == heading_signature
-        ]
-        if not matching_sections:
-            continue
-
-        current_section = _nearest_section(
+    for previous_section in previous_sections:
+        current_section = find_same_heading_section(
             previous_section,
-            matching_sections,
+            unmatched_current,
         )
-        previous_sections.remove(previous_section)
-        current_sections.remove(current_section)
-        changes.append(
-            SectionChange(
-                before=previous_section,
-                after=current_section,
+
+        if current_section is None:
+            unmatched_previous.append(previous_section)
+        else:
+            changed_sections.append(
+                SectionChange(
+                    before=previous_section,
+                    after=current_section,
+                )
             )
-        )
+            unmatched_current.remove(current_section)
 
-    return changes
-
-
-def _nearest_section(
-    reference_section: SectionVersion,
-    matching_sections: Sequence[SectionVersion],
-) -> SectionVersion:
-    """Choose the closest matching section in a deterministic way."""
-    return min(
-        matching_sections,
-        key=lambda section: (
-            abs(section.index - reference_section.index),
-            section.index,
-        ),
-    )
-
-
-def _heading_signature(
-    section: SectionVersion,
-) -> tuple[tuple[int, str], ...] | None:
-    """Return the ordered heading level/text signature for a section."""
-    if not section.headings:
-        return None
-
-    return tuple(
-        (heading.level, heading.text)
-        for heading in section.headings
-    )
+    return changed_sections, unmatched_previous, unmatched_current
