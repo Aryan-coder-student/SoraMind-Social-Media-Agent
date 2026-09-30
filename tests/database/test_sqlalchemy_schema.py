@@ -6,7 +6,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, sessionmaker
 
 from app.database.connections.sqlite import SQLiteConnection
-from app.database.schemas.sqlalchemy import PageRow
+from app.database.schemas.page import PageRow
 
 
 @pytest.fixture
