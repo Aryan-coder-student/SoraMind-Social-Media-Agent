@@ -203,3 +203,35 @@ def test_section_index_is_unique_within_page_version(
         session.add(page)
         with pytest.raises(IntegrityError):
             session.commit()
+
+
+def test_version_tables_store_only_required_fields(
+    database: SQLiteConnection,
+) -> None:
+    engine = database.connect()
+    page_version_columns = {
+        column["name"]
+        for column in inspect(engine).get_columns("page_versions")
+    }
+    section_version_columns = {
+        column["name"]
+        for column in inspect(engine).get_columns("section_versions")
+    }
+
+    assert page_version_columns == {
+        "id",
+        "page_id",
+        "version_number",
+        "title",
+        "meta_description",
+        "fingerprint",
+        "captured_at",
+    }
+    assert section_version_columns == {
+        "id",
+        "page_version_id",
+        "section_index",
+        "headings",
+        "text",
+        "fingerprint",
+    }
