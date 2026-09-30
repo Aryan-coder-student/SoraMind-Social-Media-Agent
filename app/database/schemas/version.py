@@ -66,6 +66,13 @@ class SectionVersionRow(Base):
     """Immutable historical snapshot of one normalized section."""
 
     __tablename__ = "section_versions"
+    __table_args__ = (
+        UniqueConstraint(
+            "page_version_id",
+            "section_index",
+            name="uq_section_versions_page_version_index",
+        ),
+    )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     page_version_id: Mapped[int] = mapped_column(
