@@ -112,10 +112,14 @@ app/
         ├── fingerprint/
         │   ├── base.py
         │   └── sha256.py
+        ├── change_detection/
+        │   ├── __init__.py
+        │   └── sections.py
         ├── extraction/
         │   ├── base.py
         │   └── extractor.py
         └── models/
+            ├── change.py
             ├── crawl.py
             ├── knowledge.py
             ├── page.py
@@ -688,7 +692,49 @@ Fingerprinting does not repeat normalization or use an LLM. The repository uses
 the fingerprint for deterministic version creation. Semantic diffs and change
 interpretation remain later responsibilities.
 
-## 7. Optional LLM change interpretation
+## 7. Deterministic section change detection
+
+Section-level classification runs only on persisted page versions and does not
+use an LLM or fuzzy semantic thresholds.
+
+`classify_section_changes(previous, current)` returns a `SectionChangeSet`
+containing only:
+
+- `added` — sections that exist only in the current version
+- `removed` — sections that exist only in the previous version
+- `changed` — matched sections whose content fingerprint differs
+
+Matching is deterministic and intentionally ordered:
+
+```text
+1. exact section fingerprint
+   → unchanged section
+   → consume first, even if the section moved
+
+2. same non-empty heading signature
+   → same logical section with changed content
+
+3. same section_index
+   → fallback for a section whose heading also changed
+
+4. anything still unmatched
+   → previous = removed
+   → current = added
+```
+
+Exact fingerprint matching happens before heading/index matching so inserting,
+removing, or reordering an unchanged section does not make neighboring sections
+look changed. Duplicate heading candidates are resolved deterministically by
+preferring the closest section position.
+
+Pure reordering of unchanged content is not reported as a change. The classifier
+also rejects duplicate section indexes inside one version because persisted
+version snapshots require unique positions.
+
+The classifier consumes immutable `SectionVersion` snapshots. It does not read
+the database directly and does not modify version history.
+
+## 8. Optional LLM change interpretation
 
 LLMs are not required for primary factual ingestion or fingerprint generation.
 Later change-intelligence work may send only changed pages or sections for
@@ -743,7 +789,7 @@ configured provider
 
 The Company Knowledge module must not branch directly on provider names.
 
-## 8. Service orchestration
+## 9. Service orchestration
 
 `service.py` coordinates the Phase 1 flow:
 
@@ -790,3 +836,4 @@ Whenever the folder structure, architecture, responsibilities, or any decision d
 11. Do not introduce Celery/events in Phase 1.
 12. Do not hardcode business semantics from CSS classes or section positions.
 13. Fingerprint normalized content with SHA-256 while ignoring DOM-only metadata.
+14. Classify section changes deterministically from persisted section snapshots before any optional LLM interpretation.
