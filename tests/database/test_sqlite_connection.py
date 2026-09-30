@@ -49,7 +49,6 @@ def test_create_tables_creates_page_and_section_tables(
         "page_versions",
         "pages",
         "section_versions",
-        "sections",
     }
 
 
@@ -62,7 +61,6 @@ def test_create_tables_connects_lazily() -> None:
             "page_versions",
             "pages",
             "section_versions",
-            "sections",
         }
     finally:
         database.close()
@@ -145,7 +143,6 @@ def test_multiple_sessions_share_in_memory_database(
         first_session.add(
             PageRow(
                 url="https://soraminds.com/about/",
-                fingerprint="a" * 64,
             )
         )
         first_session.commit()
