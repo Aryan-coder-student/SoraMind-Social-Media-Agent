@@ -31,11 +31,8 @@ class SectionVersion(BaseModel):
     model_config = ConfigDict(frozen=True)
 
     index: int
-    id: str | None = None
-    classes: list[str] = Field(default_factory=list)
     headings: list[Heading] = Field(default_factory=list)
     text: str
-    child_count: int = 0
     fingerprint: str
 
 
@@ -48,7 +45,6 @@ class PageVersion(BaseModel):
     url: HttpUrl
     title: str | None = None
     meta_description: str | None = None
-    canonical_url: HttpUrl | None = None
     fingerprint: str
     captured_at: AwareDatetime
     sections: list[SectionVersion] = Field(default_factory=list)
