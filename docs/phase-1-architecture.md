@@ -289,7 +289,7 @@ relational model can be reused by another SQLAlchemy backend such as PostgreSQL.
 - `page_versions` stores all page content and page fingerprints with a per-page
   version number and timezone-aware UTC capture time.
 - `section_versions` stores the complete ordered section snapshot for one page
-  version.
+  version; `(page_version_id, section_index)` is unique.
 - Current page content is not duplicated in `pages` or a separate current
   `sections` table.
 - Fingerprint and foreign-key columns are indexed for later comparison and
@@ -336,6 +336,15 @@ Canonical URL and DOM-only metadata are excluded from the content fingerprint.
 When only those values change, the repository keeps the existing immutable
 current version. Those metadata-only observations are not persisted as a new
 content version in Phase 1.
+
+### Schema migration requirement
+
+This PR changes the relational shape of existing Company Knowledge tables.
+`Base.metadata.create_all()` only creates missing tables; it does not migrate an
+existing `pages` table or remove the legacy `sections` table. Before this
+schema is used against a persistent database, an Alembic migration (or an
+explicitly approved destructive database reset for disposable environments) is
+required.
 
 ### Removed and reappearing pages
 
