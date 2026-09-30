@@ -1,6 +1,6 @@
 """Domain models for deterministic Company Knowledge section changes."""
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict
 
 from app.modules.company_knowledge.models.version import SectionVersion
 
@@ -19,6 +19,6 @@ class SectionChangeSet(BaseModel):
 
     model_config = ConfigDict(frozen=True)
 
-    added: tuple[SectionVersion, ...] = Field(default_factory=tuple)
-    removed: tuple[SectionVersion, ...] = Field(default_factory=tuple)
-    changed: tuple[SectionChange, ...] = Field(default_factory=tuple)
+    added: tuple[SectionVersion, ...] = ()
+    removed: tuple[SectionVersion, ...] = ()
+    changed: tuple[SectionChange, ...] = ()
