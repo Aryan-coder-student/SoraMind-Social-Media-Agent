@@ -1,12 +1,12 @@
 # Project Progress
 
-Last updated: 2026-09-29
+Last updated: 2026-09-30
 
 This file tracks Phase 1 implementation progress for the SoraMind Social Media Agent.
 
 ## Current status
 
-Completed and merged pull requests: **16**
+Completed and merged pull requests: **17**
 
 ### Merged PRs
 
@@ -28,6 +28,7 @@ Completed and merged pull requests: **16**
 | #15 | ✅ Merged | Backend-neutral database foundation with SQLite connection adapter, SQLAlchemy page/section schema, indexes, constraints, and database tests | 2026-09-29 |
 | #16 | ✅ Merged | Company Knowledge repository contract and SQLAlchemy current-state persistence with validated URL boundaries, domain↔row mapping utilities, upsert/read/delete behavior, and repository tests | 2026-09-29 |
 | #17 | ✅ Merged | Explicit SQLite connection pooling for file-backed databases with configurable QueuePool settings, StaticPool for in-memory SQLite, reuse tests, and docs | 2026-09-29 |
+| #18 | ✅ Merged | Immutable Company Knowledge version history with lean `pages` / `page_versions` / `section_versions` schema, current-version pointers, page-level fingerprint change detection, soft deactivation/reactivation, historical reads, schema splitting, integrity hardening, and versioning tests | 2026-09-30 |
 
 ## Completed Phase 1 components
 
@@ -131,11 +132,16 @@ Completed and merged pull requests: **16**
 - [x] Backend-neutral `DatabaseConnection` contract
 - [x] SQLite Phase 1 connection adapter
 - [x] SQLAlchemy relational schema
-- [x] `pages` and `sections` tables
+- [x] Concern-specific schema modules: `base.py`, `page.py`, and `version.py`
+- [x] Stable `pages` identity/lifecycle table
+- [x] Immutable `page_versions` table
+- [x] Immutable `section_versions` table
 - [x] Page URL uniqueness
+- [x] Per-page version-number uniqueness
+- [x] Per-version section-index uniqueness
+- [x] Current-version foreign-key pointer
+- [x] Page/version ownership validation on current-version reads
 - [x] Page and section fingerprint indexes
-- [x] Section foreign-key/index constraints
-- [x] Ordered page → sections relationship
 - [x] SQLite foreign-key enforcement
 - [x] Shared in-memory SQLite test setup
 - [x] Database connection/schema tests
@@ -144,15 +150,33 @@ Completed and merged pull requests: **16**
 
 - [x] Repository contract
 - [x] SQLAlchemyRepository implementation
-- [x] Current-state page insert/upsert by validated URL
-- [x] Current-state page read
+- [x] Page identity insert/read by validated URL
+- [x] Current page read through `current_version_id`
 - [x] Current page fingerprint lookup
-- [x] Current-state page delete
-- [x] Safe section replacement during upsert
+- [x] Explicit permanent page/history delete
 - [x] Domain ↔ SQLAlchemy row mapping utilities
 - [x] Repository URL boundary uses Pydantic `HttpUrl`
 - [x] Runtime URL validation before SQL TEXT conversion
 - [x] Repository tests
+
+### Version history and page lifecycle
+
+- [x] Version 1 creation on first page save
+- [x] New immutable page version only when the page fingerprint changes
+- [x] No duplicate version when the page fingerprint is unchanged
+- [x] `pages.current_version_id` points to the current immutable version
+- [x] Historical page-version reads
+- [x] Exact version lookup by version number
+- [x] Current/latest version lookup
+- [x] Complete section snapshots stored per page version
+- [x] Section fingerprints retained for later section-level change detection
+- [x] Soft page deactivation with `is_active`
+- [x] Page reactivation without duplicate history when content is unchanged
+- [x] History preserved when a page disappears
+- [x] Atomic changed-version insert + current-version pointer update
+- [x] Current-version ownership validation
+- [x] Lean persisted schema: canonical URL and DOM-only metadata are not stored
+- [x] Version-history and lifecycle tests
 
 ### Connection pooling
 
@@ -179,7 +203,20 @@ Completed and merged pull requests: **16**
 
 The normalized factual page data is the source of truth for Phase 1.
 
-`PageDocument` / normalized page structure should be persisted directly instead of requiring an LLM to restructure information that is already available deterministically.
+Persistence now uses immutable versions without duplicating current content:
+
+```text
+pages
+= stable URL identity + lifecycle + current_version_id
+
+page_versions
+= immutable page content states
+
+section_versions
+= immutable section snapshots
+```
+
+Only knowledge-relevant persisted fields are stored. Canonical URL and DOM-only metadata remain extraction-time observations, while section fingerprints are retained for planned section-level change detection.
 
 LLM output is treated as optional derived intelligence rather than the primary stored representation.
 
@@ -203,12 +240,14 @@ This keeps crawling and persistence deterministic while using the LLM only where
 
 ## Remaining Phase 1 work
 
-- [ ] Version history for crawled page data
-- [ ] Deterministic page / section change detection
+- [ ] Deterministic section-level added / removed / changed classification
 - [ ] CompanyKnowledgeService orchestration
-- [ ] Tests for remaining versioning / service / end-to-end components
+- [ ] Safe completed-crawl reconciliation from the service layer
+- [ ] Tests for service / section-diff / end-to-end components
 - [ ] End-to-end Phase 1 crawl → normalize → fingerprint → persist flow
 - [ ] Optional LLM-based interpretation of changed content
+
+Page-level change detection and version creation are complete through deterministic fingerprint comparison in the repository.
 
 ## Phase 1 flow
 
@@ -268,9 +307,13 @@ Repository implementation         ✅
    ↓
 SQLite connection pooling         ✅
    ↓
-Version history                   ⏳
+Version history                   ✅
    ↓
-Change detection                 ⏳
+Page-level change detection       ✅
+   ↓
+Section-level change detection    ⏳
+   ↓
+Service orchestration             ⏳
    ↓
 Optional LLM interpretation      ⏳
 ```
