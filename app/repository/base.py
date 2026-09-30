@@ -5,6 +5,7 @@ from abc import ABC, abstractmethod
 from pydantic import HttpUrl
 
 from app.modules.company_knowledge.models.page import PageDocument
+from app.modules.company_knowledge.models.version import PageVersion, SavePageResult
 
 
 class Repository(ABC):
@@ -16,8 +17,8 @@ class Repository(ABC):
         page: PageDocument,
         page_fingerprint: str,
         section_fingerprints: list[str],
-    ) -> None:
-        """Insert or replace the current state for one page URL."""
+    ) -> SavePageResult:
+        """Persist current state and create history when content changes."""
         ...
 
     @abstractmethod
@@ -42,4 +43,31 @@ class Repository(ABC):
         url: HttpUrl,
     ) -> bool:
         """Delete the current page state and return whether it existed."""
+        ...
+
+    @abstractmethod
+    def get_page_versions(self, url: HttpUrl) -> list[PageVersion]:
+        """Return immutable snapshots in ascending version order."""
+        ...
+
+    @abstractmethod
+    def get_page_version(
+        self,
+        url: HttpUrl,
+        version_number: int,
+    ) -> PageVersion | None:
+        """Return one historical snapshot for a page URL."""
+        ...
+
+    @abstractmethod
+    def get_latest_version(self, url: HttpUrl) -> PageVersion | None:
+        """Return the latest historical snapshot for a page URL."""
+        ...
+
+    @abstractmethod
+    def mark_missing_pages_inactive(
+        self,
+        seen_urls: set[HttpUrl],
+    ) -> list[HttpUrl]:
+        """Deactivate active pages absent from a completed crawl."""
         ...

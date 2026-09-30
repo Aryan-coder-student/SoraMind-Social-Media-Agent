@@ -1,0 +1,55 @@
+"""Domain models for immutable Company Knowledge page versions."""
+
+from datetime import datetime
+from enum import Enum
+
+from pydantic import BaseModel, ConfigDict, Field, HttpUrl
+
+from app.modules.company_knowledge.models.page import Heading
+
+
+class SavePageStatus(str, Enum):
+    """Outcome of persisting one normalized page."""
+
+    NEW = "new"
+    UNCHANGED = "unchanged"
+    CHANGED = "changed"
+    REACTIVATED = "reactivated"
+
+
+class SavePageResult(BaseModel):
+    """Persistence outcome and resulting latest version number."""
+
+    model_config = ConfigDict(frozen=True)
+
+    status: SavePageStatus
+    version_number: int = Field(gt=0)
+
+
+class SectionVersion(BaseModel):
+    """Immutable snapshot of one normalized page section."""
+
+    model_config = ConfigDict(frozen=True)
+
+    index: int
+    id: str | None = None
+    classes: list[str] = Field(default_factory=list)
+    headings: list[Heading] = Field(default_factory=list)
+    text: str
+    child_count: int = 0
+    fingerprint: str
+
+
+class PageVersion(BaseModel):
+    """Immutable content snapshot created for a page fingerprint."""
+
+    model_config = ConfigDict(frozen=True)
+
+    version_number: int = Field(gt=0)
+    url: HttpUrl
+    title: str | None = None
+    meta_description: str | None = None
+    canonical_url: HttpUrl | None = None
+    fingerprint: str
+    captured_at: datetime
+    sections: list[SectionVersion] = Field(default_factory=list)

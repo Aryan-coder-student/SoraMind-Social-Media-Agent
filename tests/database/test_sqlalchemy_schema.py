@@ -221,11 +221,11 @@ def test_schema_creates_required_indexes(
 ) -> None:
     page_indexes = {
         tuple(index["column_names"])
-        for index in inspect(connection.engine).get_indexes("pages")
+        for index in inspect(connection.connect()).get_indexes("pages")
     }
     section_indexes = {
         tuple(index["column_names"])
-        for index in inspect(connection.engine).get_indexes("sections")
+        for index in inspect(connection.connect()).get_indexes("sections")
     }
 
     assert ("fingerprint",) in page_indexes

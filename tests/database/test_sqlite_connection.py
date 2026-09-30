@@ -46,7 +46,9 @@ def test_create_tables_creates_page_and_section_tables(
     connection: SQLiteConnection,
 ) -> None:
     assert set(inspect(connection.connect()).get_table_names()) == {
+        "page_versions",
         "pages",
+        "section_versions",
         "sections",
     }
 
@@ -57,7 +59,9 @@ def test_create_tables_connects_lazily() -> None:
     try:
         database.create_tables()
         assert set(inspect(database.connect()).get_table_names()) == {
+            "page_versions",
             "pages",
+            "section_versions",
             "sections",
         }
     finally:
