@@ -26,7 +26,7 @@ def session_factory(database: SQLiteConnection) -> sessionmaker[Session]:
 
 
 def make_page() -> PageRow:
-    return PageRow(url="https://soraminds.com/about/", fingerprint="a" * 64)
+    return PageRow(url="https://soraminds.com/about/")
 
 
 def make_version(version_number: int) -> PageVersionRow:
@@ -45,10 +45,9 @@ def make_version(version_number: int) -> PageVersionRow:
     )
 
 
-def test_creates_version_tables(database: SQLiteConnection) -> None:
+def test_creates_identity_and_version_tables(database: SQLiteConnection) -> None:
     assert set(inspect(database.connect()).get_table_names()) == {
         "pages",
-        "sections",
         "page_versions",
         "section_versions",
     }
@@ -62,6 +61,30 @@ def test_page_is_active_by_default(session_factory: sessionmaker[Session]) -> No
         session.commit()
 
     assert page.is_active is True
+    assert page.current_version_id is None
+
+
+def test_page_can_point_to_current_version(
+    session_factory: sessionmaker[Session],
+) -> None:
+    page = make_page()
+
+    with session_factory() as session:
+        session.add(page)
+        session.flush()
+        version = make_version(1)
+        page.versions.append(version)
+        session.flush()
+        page.current_version_id = version.id
+        session.commit()
+        page_id = page.id
+        version_id = version.id
+
+    with session_factory() as session:
+        stored_page = session.get(PageRow, page_id)
+
+    assert stored_page is not None
+    assert stored_page.current_version_id == version_id
 
 
 def test_page_version_numbers_are_unique_per_page(
@@ -104,6 +127,7 @@ def test_version_relationships_are_ordered(
 
     with session_factory() as session:
         stored_page = session.get(PageRow, page_id)
+        assert stored_page is not None
         assert [item.version_number for item in stored_page.versions] == [1, 2]
         assert [
             item.section_index
@@ -115,14 +139,20 @@ def test_deleting_page_cascades_to_all_version_rows(
     session_factory: sessionmaker[Session],
 ) -> None:
     page = make_page()
-    page.versions.append(make_version(1))
 
     with session_factory() as session:
         session.add(page)
+        session.flush()
+        version = make_version(1)
+        page.versions.append(version)
+        session.flush()
+        page.current_version_id = version.id
         session.commit()
+
         page_id = page.id
-        version_id = page.versions[0].id
-        section_version_id = page.versions[0].sections[0].id
+        version_id = version.id
+        section_version_id = version.sections[0].id
+
         session.execute(delete(PageRow).where(PageRow.id == page_id))
         session.commit()
 
