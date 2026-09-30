@@ -8,7 +8,8 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session, sessionmaker
 
 from app.database.connections.sqlite import SQLiteConnection
-from app.database.schemas.sqlalchemy import PageRow, PageVersionRow
+from app.database.schemas.page import PageRow
+from app.database.schemas.version import PageVersionRow
 from app.modules.company_knowledge.models.page import Heading, PageDocument, PageSection
 from app.modules.company_knowledge.models.version import SavePageStatus
 from app.repository.operations import sqlalchemy as repository_module
