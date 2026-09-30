@@ -26,7 +26,7 @@ class Repository(ABC):
         self,
         url: HttpUrl,
     ) -> PageDocument | None:
-        """Return the current normalized page for a URL."""
+        """Return the persisted content subset for the current page version."""
         ...
 
     @abstractmethod
