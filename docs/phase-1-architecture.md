@@ -113,11 +113,12 @@ app/
         │   ├── base.py
         │   └── sha256.py
         ├── section_changes.py
+        ├── section_change_utils.py
         ├── extraction/
         │   ├── base.py
         │   └── extractor.py
         └── models/
-            ├── change.py
+            ├── section_change.py
             ├── crawl.py
             ├── knowledge.py
             ├── page.py
@@ -729,16 +730,18 @@ its fingerprint; if its content changes, it remains unmatched and is reported as
 removed + added.
 
 The classifier trusts persisted `SectionVersion` invariants instead of repeating
-database constraints or runtime type checks.
+database constraints or runtime type checks. The repository already loads section
+versions in `section_index` order through the SQLAlchemy relationship, so the
+classifier copies the input sequence into mutable lists but does not sort it again.
 
 The classifier consumes immutable `SectionVersion` snapshots. It does not read
 the database directly, modify version history, perform fuzzy matching, or add
 another abstraction layer around the matching rules.
 
-Section matching is small enough to live in one explicit module:
-`company_knowledge/section_changes.py`. A dedicated subpackage would add an
-extra directory and `__init__.py` without adding a real boundary yet. Result
-models stay with the other domain models in `models/change.py`.
+Section classification stays in `company_knowledge/section_changes.py`.
+Small reusable matching helpers live in `section_change_utils.py`, while the
+result models live with the other domain models in
+`models/section_change.py`.
 
 ## 8. Optional LLM change interpretation
 
