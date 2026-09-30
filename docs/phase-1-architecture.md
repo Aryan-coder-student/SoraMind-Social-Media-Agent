@@ -697,14 +697,14 @@ interpretation remain later responsibilities.
 Section-level classification runs only on persisted page versions and does not
 use an LLM or fuzzy semantic thresholds.
 
-`classify_section_changes(previous, current)` returns a `SectionChangeSet`
+`classify_section_changes(previous_sections, current_sections)` returns a `SectionChangeSet`
 containing only:
 
 - `added` — sections that exist only in the current version
 - `removed` — sections that exist only in the previous version
 - `changed` — matched sections whose content fingerprint differs
 
-Matching is deterministic and intentionally ordered:
+Matching is deterministic and intentionally conservative:
 
 ```text
 1. exact section fingerprint
@@ -714,25 +714,31 @@ Matching is deterministic and intentionally ordered:
 2. same non-empty heading signature
    → same logical section with changed content
 
-3. same section_index
-   → fallback for a section whose heading also changed
-
-4. anything still unmatched
+3. anything still unmatched
    → previous = removed
    → current = added
 ```
 
-Exact fingerprint matching happens before heading/index matching so inserting,
-removing, or reordering an unchanged section does not make neighboring sections
+Exact fingerprint matching happens before heading matching so inserting,
+removing, or reordering unchanged sections does not make neighboring sections
 look changed. Duplicate heading candidates are resolved deterministically by
 preferring the closest section position.
 
-Pure reordering of unchanged content is not reported as a change. The classifier
-also rejects duplicate section indexes inside one version because persisted
-version snapshots require unique positions.
+Section position alone is not treated as identity. A different section appearing
+at the same index is therefore reported as removed + added rather than guessed to
+be a modification. Sections without headings are also only classified as changed
+when their exact fingerprint is unchanged; otherwise they remain unmatched.
+
+The classifier trusts persisted `SectionVersion` invariants instead of repeating
+database constraints or runtime type checks.
 
 The classifier consumes immutable `SectionVersion` snapshots. It does not read
-the database directly and does not modify version history.
+the database directly, modify version history, perform fuzzy matching, or add
+another abstraction layer around the matching rules.
+
+The `change_detection/` package remains one small capability-focused package
+that mirrors the test layout. Matching logic stays in `sections.py`; result
+models stay with the other domain models in `models/change.py`.
 
 ## 8. Optional LLM change interpretation
 
