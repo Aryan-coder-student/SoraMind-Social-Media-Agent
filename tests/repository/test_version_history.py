@@ -118,7 +118,11 @@ def test_version_one_contains_all_section_snapshots(
 
     assert [section.index for section in version.sections] == [0, 1]
     assert [section.fingerprint for section in version.sections] == ["b" * 64, "c" * 64]
-    assert version.sections[0].id == "first"
+    assert [section.text for section in version.sections] == ["First", "Second"]
+    assert [section.headings[0].text for section in version.sections] == [
+        "Heading 0",
+        "Heading 1",
+    ]
 
 
 def test_identical_fingerprint_creates_no_version_two(
@@ -417,8 +421,10 @@ def test_unchanged_fingerprint_keeps_current_version_immutable(
     assert len(repository.get_page_versions(page.url)) == 1
     assert current_version_id == original_version_id
     assert stored_page is not None
-    assert stored_page.canonical_url == page.canonical_url
-    assert stored_page.sections[0].id == "hero"
+    assert stored_page.canonical_url is None
+    assert stored_page.sections[0].id is None
+    assert stored_page.sections[0].classes == []
+    assert stored_page.sections[0].child_count == 0
 
 
 def test_current_page_read_rejects_foreign_version_pointer(
