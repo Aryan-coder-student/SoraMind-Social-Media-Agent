@@ -32,14 +32,11 @@ def section_to_version_row(
     """Convert a normalized section into an immutable snapshot row."""
     return SectionVersionRow(
         section_index=section.index,
-        dom_id=section.id,
-        classes=list(section.classes),
         headings=[
             {"level": heading.level, "text": heading.text}
             for heading in section.headings
         ],
         text=section.text,
-        child_count=section.child_count,
         fingerprint=fingerprint,
     )
 
@@ -52,12 +49,9 @@ def row_to_page_document(
         url=row.page.url,
         title=row.title,
         meta_description=row.meta_description,
-        canonical_url=row.canonical_url,
         sections=[
             PageSection(
                 index=section.section_index,
-                id=section.dom_id,
-                classes=list(section.classes),
                 headings=[
                     Heading(
                         level=int(heading["level"]),
@@ -66,7 +60,6 @@ def row_to_page_document(
                     for heading in section.headings
                 ],
                 text=section.text,
-                child_count=section.child_count,
             )
             for section in row.sections
         ],
@@ -84,14 +77,11 @@ def row_to_page_version(row: PageVersionRow) -> PageVersion:
         url=row.page.url,
         title=row.title,
         meta_description=row.meta_description,
-        canonical_url=row.canonical_url,
         fingerprint=row.fingerprint,
         captured_at=captured_at,
         sections=[
             SectionVersion(
                 index=section.section_index,
-                id=section.dom_id,
-                classes=list(section.classes),
                 headings=[
                     Heading(
                         level=int(heading["level"]),
@@ -100,7 +90,6 @@ def row_to_page_version(row: PageVersionRow) -> PageVersion:
                     for heading in section.headings
                 ],
                 text=section.text,
-                child_count=section.child_count,
                 fingerprint=section.fingerprint,
             )
             for section in row.sections
