@@ -175,3 +175,31 @@ def test_version_foreign_keys_have_indexes(database: SQLiteConnection) -> None:
 
     assert ("page_id",) in page_indexes
     assert ("page_version_id",) in section_indexes
+
+
+def test_section_index_is_unique_within_page_version(
+    session_factory: sessionmaker[Session],
+) -> None:
+    page = make_page()
+    version = PageVersionRow(
+        version_number=1,
+        fingerprint="a" * 64,
+        sections=[
+            SectionVersionRow(
+                section_index=0,
+                text="First",
+                fingerprint="b" * 64,
+            ),
+            SectionVersionRow(
+                section_index=0,
+                text="Duplicate",
+                fingerprint="c" * 64,
+            ),
+        ],
+    )
+    page.versions.append(version)
+
+    with session_factory() as session:
+        session.add(page)
+        with pytest.raises(IntegrityError):
+            session.commit()
