@@ -1,7 +1,7 @@
-"""SQLAlchemy persistence for current Company Knowledge and page history."""
+"""SQLAlchemy persistence for page identity and immutable Company Knowledge versions."""
 
 from pydantic import HttpUrl
-from sqlalchemy import func, select
+from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload, sessionmaker
 from sqlalchemy.sql import Select
 
@@ -16,7 +16,6 @@ from app.repository.base import Repository
 from app.repository.operations.utils import (
     row_to_page_document,
     row_to_page_version,
-    section_to_row,
     section_to_version_row,
     string_to_url,
     url_to_string,
@@ -24,7 +23,7 @@ from app.repository.operations.utils import (
 
 
 class SQLAlchemyRepository(Repository):
-    """Persist current state and immutable history in one transaction."""
+    """Persist stable page identities pointing at immutable content versions."""
 
     def __init__(
         self,
@@ -38,9 +37,8 @@ class SQLAlchemyRepository(Repository):
         page_fingerprint: str,
         section_fingerprints: list[str],
     ) -> SavePageResult:
-        """Persist a page and snapshot it only when its fingerprint changes."""
+        """Create a version only when the page fingerprint changes."""
         self._validate_section_fingerprints(page, section_fingerprints)
-
         url = url_to_string(page.url)
 
         with self._session_factory() as session:
@@ -50,26 +48,12 @@ class SQLAlchemyRepository(Repository):
                 )
 
                 if row is None:
-                    row = PageRow(url=url, fingerprint=page_fingerprint)
-                    session.add(row)
-                    self._replace_current_state(
+                    result = self._insert_new_page(
                         session,
-                        row,
+                        url,
                         page,
                         page_fingerprint,
                         section_fingerprints,
-                    )
-                    row.versions.append(
-                        self._create_version_row(
-                            page,
-                            page_fingerprint,
-                            section_fingerprints,
-                            version_number=1,
-                        )
-                    )
-                    result = SavePageResult(
-                        status=SavePageStatus.NEW,
-                        version_number=1,
                     )
                 else:
                     result = self._update_existing_page(
@@ -82,6 +66,34 @@ class SQLAlchemyRepository(Repository):
 
             return result
 
+    def _insert_new_page(
+        self,
+        session: Session,
+        url: str,
+        page: PageDocument,
+        page_fingerprint: str,
+        section_fingerprints: list[str],
+    ) -> SavePageResult:
+        """Insert stable page identity and immutable version one."""
+        row = PageRow(url=url)
+        session.add(row)
+        session.flush()
+
+        version = self._create_version_row(
+            page,
+            page_fingerprint,
+            section_fingerprints,
+            version_number=1,
+        )
+        row.versions.append(version)
+        session.flush()
+        row.current_version_id = version.id
+
+        return SavePageResult(
+            status=SavePageStatus.NEW,
+            version_number=1,
+        )
+
     def _update_existing_page(
         self,
         session: Session,
@@ -90,20 +102,12 @@ class SQLAlchemyRepository(Repository):
         page_fingerprint: str,
         section_fingerprints: list[str],
     ) -> SavePageResult:
-        """Update current state and append history when content changed."""
-        content_changed = row.fingerprint != page_fingerprint
+        """Reactivate or advance the page's immutable current-version pointer."""
+        current_version = self._get_current_version(session, row)
         was_active = row.is_active
-        latest_version = self._latest_version_number(session, row.id)
+        row.is_active = True
 
-        self._replace_current_state(
-            session,
-            row,
-            page,
-            page_fingerprint,
-            section_fingerprints,
-        )
-
-        if not content_changed:
+        if current_version.fingerprint == page_fingerprint:
             status = (
                 SavePageStatus.REACTIVATED
                 if not was_active
@@ -111,53 +115,42 @@ class SQLAlchemyRepository(Repository):
             )
             return SavePageResult(
                 status=status,
-                version_number=latest_version,
+                version_number=current_version.version_number,
             )
 
-        next_version = latest_version + 1
-        row.versions.append(
-            self._create_version_row(
-                page,
-                page_fingerprint,
-                section_fingerprints,
-                version_number=next_version,
-            )
+        next_version = current_version.version_number + 1
+        version = self._create_version_row(
+            page,
+            page_fingerprint,
+            section_fingerprints,
+            version_number=next_version,
         )
+        row.versions.append(version)
+        session.flush()
+        row.current_version_id = version.id
+
         return SavePageResult(
             status=SavePageStatus.CHANGED,
             version_number=next_version,
         )
 
     @staticmethod
-    def _replace_current_state(
+    def _get_current_version(
         session: Session,
         row: PageRow,
-        page: PageDocument,
-        page_fingerprint: str,
-        section_fingerprints: list[str],
-    ) -> None:
-        """Replace current factual state without committing the transaction."""
-        if row.sections:
-            row.sections.clear()
-            session.flush()
-
-        row.title = page.title
-        row.meta_description = page.meta_description
-        row.canonical_url = (
-            url_to_string(page.canonical_url)
-            if page.canonical_url is not None
-            else None
-        )
-        row.fingerprint = page_fingerprint
-        row.is_active = True
-        row.sections = [
-            section_to_row(section, fingerprint)
-            for section, fingerprint in zip(
-                page.sections,
-                section_fingerprints,
-                strict=True,
+    ) -> PageVersionRow:
+        """Load the immutable version currently selected by a page identity."""
+        if row.current_version_id is None:
+            raise RuntimeError(
+                f"page {row.url!r} has no current version"
             )
-        ]
+
+        version = session.get(PageVersionRow, row.current_version_id)
+        if version is None:
+            raise RuntimeError(
+                f"page {row.url!r} points to a missing current version"
+            )
+        return version
 
     @staticmethod
     def _create_version_row(
@@ -188,16 +181,6 @@ class SQLAlchemyRepository(Repository):
         )
 
     @staticmethod
-    def _latest_version_number(session: Session, page_id: int) -> int:
-        """Return the latest per-page version number."""
-        latest = session.scalar(
-            select(func.max(PageVersionRow.version_number)).where(
-                PageVersionRow.page_id == page_id
-            )
-        )
-        return int(latest or 0)
-
-    @staticmethod
     def _validate_section_fingerprints(
         page: PageDocument,
         section_fingerprints: list[str],
@@ -211,36 +194,35 @@ class SQLAlchemyRepository(Repository):
         self,
         url: HttpUrl,
     ) -> PageDocument | None:
-        """Return the current normalized page for a URL."""
+        """Return the page represented by its current immutable version."""
         validated_url = url_to_string(url)
 
         with self._session_factory() as session:
-            row = session.scalar(
-                select(PageRow).where(PageRow.url == validated_url)
-            )
-
-            if row is None:
-                return None
-
-            return row_to_page_document(row)
+            row = session.scalar(self._current_version_query(validated_url))
+            return row_to_page_document(row) if row is not None else None
 
     def get_page_fingerprint(
         self,
         url: HttpUrl,
     ) -> str | None:
-        """Return the current page fingerprint for a URL."""
+        """Return the fingerprint of the page's current version."""
         validated_url = url_to_string(url)
 
         with self._session_factory() as session:
             return session.scalar(
-                select(PageRow.fingerprint).where(PageRow.url == validated_url)
+                select(PageVersionRow.fingerprint)
+                .join(
+                    PageRow,
+                    PageRow.current_version_id == PageVersionRow.id,
+                )
+                .where(PageRow.url == validated_url)
             )
 
     def delete_page(
         self,
         url: HttpUrl,
     ) -> bool:
-        """Delete the current page state and return whether it existed."""
+        """Delete a page identity and all historical versions."""
         validated_url = url_to_string(url)
 
         with self._session_factory() as session:
@@ -284,15 +266,11 @@ class SQLAlchemyRepository(Repository):
             return row_to_page_version(row) if row is not None else None
 
     def get_latest_version(self, url: HttpUrl) -> PageVersion | None:
-        """Return the newest immutable snapshot for a page."""
+        """Return the current immutable snapshot for a page."""
         validated_url = url_to_string(url)
 
         with self._session_factory() as session:
-            row = session.scalar(
-                self._version_query(validated_url)
-                .order_by(PageVersionRow.version_number.desc())
-                .limit(1)
-            )
+            row = session.scalar(self._current_version_query(validated_url))
             return row_to_page_version(row) if row is not None else None
 
     def mark_missing_pages_inactive(
@@ -315,6 +293,24 @@ class SQLAlchemyRepository(Repository):
                     row.is_active = False
 
                 return [string_to_url(row.url) for row in missing_rows]
+
+    @staticmethod
+    def _current_version_query(
+        validated_url: str,
+    ) -> Select[tuple[PageVersionRow]]:
+        """Build the eager-loaded query for a page's selected current version."""
+        return (
+            select(PageVersionRow)
+            .join(
+                PageRow,
+                PageRow.current_version_id == PageVersionRow.id,
+            )
+            .options(
+                selectinload(PageVersionRow.page),
+                selectinload(PageVersionRow.sections),
+            )
+            .where(PageRow.url == validated_url)
+        )
 
     @staticmethod
     def _version_query(
