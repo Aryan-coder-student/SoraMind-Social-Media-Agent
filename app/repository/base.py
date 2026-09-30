@@ -42,7 +42,7 @@ class Repository(ABC):
         self,
         url: HttpUrl,
     ) -> bool:
-        """Delete the current page state and return whether it existed."""
+        """Permanently delete a page identity and all version history."""
         ...
 
     @abstractmethod
@@ -61,7 +61,7 @@ class Repository(ABC):
 
     @abstractmethod
     def get_latest_version(self, url: HttpUrl) -> PageVersion | None:
-        """Return the latest historical snapshot for a page URL."""
+        """Return the immutable version selected as the page's current state."""
         ...
 
     @abstractmethod
@@ -69,5 +69,5 @@ class Repository(ABC):
         self,
         seen_urls: set[HttpUrl],
     ) -> list[HttpUrl]:
-        """Deactivate active pages absent from a completed crawl."""
+        """Deactivate active pages absent from an authoritative completed crawl."""
         ...
