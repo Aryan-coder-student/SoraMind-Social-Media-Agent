@@ -151,6 +151,10 @@ class SQLAlchemyRepository(Repository):
             raise RuntimeError(
                 f"page {row.url!r} points to a missing current version"
             )
+        if version.page_id != row.id:
+            raise RuntimeError(
+                f"current version {version.id} does not belong to page {row.id}"
+            )
         return version
 
     @staticmethod
@@ -214,7 +218,8 @@ class SQLAlchemyRepository(Repository):
                 select(PageVersionRow.fingerprint)
                 .join(
                     PageRow,
-                    PageRow.current_version_id == PageVersionRow.id,
+                    (PageRow.current_version_id == PageVersionRow.id)
+                    & (PageVersionRow.page_id == PageRow.id),
                 )
                 .where(PageRow.url == validated_url)
             )
@@ -304,7 +309,8 @@ class SQLAlchemyRepository(Repository):
             select(PageVersionRow)
             .join(
                 PageRow,
-                PageRow.current_version_id == PageVersionRow.id,
+                (PageRow.current_version_id == PageVersionRow.id)
+                & (PageVersionRow.page_id == PageRow.id),
             )
             .options(
                 selectinload(PageVersionRow.page),
