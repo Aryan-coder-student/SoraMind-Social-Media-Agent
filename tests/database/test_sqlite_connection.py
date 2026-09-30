@@ -7,7 +7,7 @@ from sqlalchemy.pool import QueuePool, StaticPool
 
 from app.database.base import DatabaseConnection
 from app.database.connections.sqlite import SQLiteConnection
-from app.database.schemas.sqlalchemy import PageRow
+from app.database.schemas.page import PageRow
 from app.settings import (
     SQLALCHEMY_MAX_OVERFLOW,
     SQLALCHEMY_POOL_SIZE,
@@ -42,12 +42,13 @@ def test_creates_in_memory_sqlite_engine() -> None:
         database.close()
 
 
-def test_create_tables_creates_page_and_section_tables(
+def test_create_tables_creates_company_knowledge_tables(
     connection: SQLiteConnection,
 ) -> None:
     assert set(inspect(connection.connect()).get_table_names()) == {
+        "page_versions",
         "pages",
-        "sections",
+        "section_versions",
     }
 
 
@@ -57,8 +58,9 @@ def test_create_tables_connects_lazily() -> None:
     try:
         database.create_tables()
         assert set(inspect(database.connect()).get_table_names()) == {
+            "page_versions",
             "pages",
-            "sections",
+            "section_versions",
         }
     finally:
         database.close()
@@ -96,7 +98,6 @@ def test_in_memory_database_uses_one_shared_connection() -> None:
         assert isinstance(engine.pool, StaticPool)
     finally:
         database.close()
-
 
 
 def test_file_database_uses_queue_pool(tmp_path) -> None:
@@ -141,7 +142,6 @@ def test_multiple_sessions_share_in_memory_database(
         first_session.add(
             PageRow(
                 url="https://soraminds.com/about/",
-                fingerprint="a" * 64,
             )
         )
         first_session.commit()

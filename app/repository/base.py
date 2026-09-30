@@ -1,14 +1,15 @@
-"""Repository contract for current Company Knowledge persistence."""
+"""Repository contract for current Company Knowledge and immutable history."""
 
 from abc import ABC, abstractmethod
 
 from pydantic import HttpUrl
 
 from app.modules.company_knowledge.models.page import PageDocument
+from app.modules.company_knowledge.models.version import PageVersion, SavePageResult
 
 
 class Repository(ABC):
-    """Persist and retrieve the current normalized Company Knowledge state."""
+    """Persist current normalized state and meaningful content versions."""
 
     @abstractmethod
     def save_page(
@@ -16,8 +17,8 @@ class Repository(ABC):
         page: PageDocument,
         page_fingerprint: str,
         section_fingerprints: list[str],
-    ) -> None:
-        """Insert or replace the current state for one page URL."""
+    ) -> SavePageResult:
+        """Persist current state and create history when content changes."""
         ...
 
     @abstractmethod
@@ -25,7 +26,7 @@ class Repository(ABC):
         self,
         url: HttpUrl,
     ) -> PageDocument | None:
-        """Return the current normalized page for a URL."""
+        """Return the persisted content subset for the current page version."""
         ...
 
     @abstractmethod
@@ -41,5 +42,32 @@ class Repository(ABC):
         self,
         url: HttpUrl,
     ) -> bool:
-        """Delete the current page state and return whether it existed."""
+        """Permanently delete a page identity and all version history."""
+        ...
+
+    @abstractmethod
+    def get_page_versions(self, url: HttpUrl) -> list[PageVersion]:
+        """Return immutable snapshots in ascending version order."""
+        ...
+
+    @abstractmethod
+    def get_page_version(
+        self,
+        url: HttpUrl,
+        version_number: int,
+    ) -> PageVersion | None:
+        """Return one historical snapshot for a page URL."""
+        ...
+
+    @abstractmethod
+    def get_latest_version(self, url: HttpUrl) -> PageVersion | None:
+        """Return the immutable version selected as the page's current state."""
+        ...
+
+    @abstractmethod
+    def mark_missing_pages_inactive(
+        self,
+        seen_urls: set[HttpUrl],
+    ) -> list[HttpUrl]:
+        """Deactivate active pages absent from an authoritative completed crawl."""
         ...

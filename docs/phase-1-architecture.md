@@ -75,7 +75,9 @@ app/
 │   │   └── sqlite.py
 │   └── schemas/
 │       ├── __init__.py
-│       └── sqlalchemy.py
+│       ├── base.py
+│       ├── page.py
+│       └── version.py
 │
 ├── repository/
 │   ├── __init__.py
@@ -115,8 +117,9 @@ app/
         │   └── extractor.py
         └── models/
             ├── crawl.py
+            ├── knowledge.py
             ├── page.py
-            └── knowledge.py
+            └── version.py
 ```
 
 ## Repository Pattern
@@ -148,8 +151,8 @@ CompanyKnowledgeService
 
 Defines the persistence contract.
 
-The current Company Knowledge repository contract exposes only the operations
-needed by the factual current-state pipeline:
+The Company Knowledge repository contract exposes current-state, immutable
+history, and crawl-completion lifecycle operations:
 
 ```python
 class Repository(ABC):
@@ -169,6 +172,18 @@ class Repository(ABC):
 
     @abstractmethod
     def delete_page(self, url): ...
+
+    @abstractmethod
+    def get_page_versions(self, url): ...
+
+    @abstractmethod
+    def get_page_version(self, url, version_number): ...
+
+    @abstractmethod
+    def get_latest_version(self, url): ...
+
+    @abstractmethod
+    def mark_missing_pages_inactive(self, seen_urls): ...
 ```
 
 ### `app/repository/operations/sqlalchemy.py`
@@ -177,23 +192,31 @@ Contains the relational repository implementation. It receives a SQLAlchemy
 session factory and delegates domain ↔ persistence conversion to
 `app/repository/operations/utils.py`.
 
-`app/repository/operations/utils.py` contains the mapping helpers between factual
-domain models (`PageDocument` / `PageSection`) and persistence rows
-(`PageRow` / `SectionRow`). It also owns the URL boundary helper that validates
-repository URL inputs as Pydantic `HttpUrl` values before converting them to the
-SQL string representation.
+`app/repository/operations/utils.py` contains mapping helpers between factual
+domain models (`PageDocument` / `PageSection`) and immutable version rows
+(`PageVersionRow` / `SectionVersionRow`). It also owns the URL boundary helper
+that validates repository URL inputs as Pydantic `HttpUrl` values before
+converting them to the SQL string representation.
 
-`save_page()` is a current-state upsert keyed by page URL:
+`save_page()` is keyed by page URL and returns `NEW`, `UNCHANGED`, `CHANGED`,
+or `REACTIVATED` with the latest version number:
 
 ```text
 new URL
-→ insert page + ordered sections
+→ insert stable page identity
+→ create immutable version 1
+→ point pages.current_version_id at version 1
 
 existing URL
-→ update page metadata/fingerprint
-→ replace old current sections
-→ store new ordered sections/fingerprints
+→ load pages.current_version_id
+→ compare the current version fingerprint
+→ same fingerprint: keep the same immutable version
+→ changed fingerprint: append the next version
+→ move pages.current_version_id to the new version
 ```
+
+The changed-page version insert and `current_version_id` pointer update use one
+database transaction. Any failure rolls back both operations.
 
 This operation layer is intentionally SQLAlchemy-specific rather than
 SQLite-specific, so the same repository can be reused with a PostgreSQL
@@ -246,33 +269,137 @@ database/connections/
 └── mongodb.py      ← later
 ```
 
-### `app/database/schemas/sqlalchemy.py`
+### `app/database/schemas/`
 
-Defines the current relational `pages` and `sections` mappings. The schema is
-named for SQLAlchemy rather than SQLite because the same relational mapping can
-be reused by another SQLAlchemy backend such as PostgreSQL.
+SQLAlchemy schema definitions are split by responsibility instead of keeping all
+ORM models in one file:
 
-- `pages.url` is the unique page identity. Each page row stores its current
-  normalized metadata and page fingerprint.
-- `sections` stores the ordered normalized sections for a page, including DOM
-  metadata, headings, text, child count, and the section fingerprint. The DOM
-  metadata remains available as factual crawl output even though fingerprinting
-  excludes it.
-- `(page_id, section_index)` is unique, and deleting a page cascades to its
-  sections.
+- `base.py` defines the shared declarative `Base`.
+- `page.py` defines stable page identity/lifecycle storage (`PageRow`).
+- `version.py` defines immutable page/section version storage
+  (`PageVersionRow` / `SectionVersionRow`).
+
+These mappings remain SQLAlchemy-specific rather than SQLite-specific, so the
+relational model can be reused by another SQLAlchemy backend such as PostgreSQL.
+
+- `pages.url` is the stable unique page identity.
+- `pages.is_active` identifies URLs present in the latest completed crawl.
+- `pages.current_version_id` points to the immutable version currently exposed
+  as the page's current Company Knowledge state.
+- `page_versions` stores only versioned Company Knowledge fields: title,
+  meta description, page fingerprint, version number, and capture time.
+- `section_versions` stores only section position, headings, normalized text,
+  and section fingerprint; `(page_version_id, section_index)` is unique.
+- Current page content is not duplicated in `pages` or a separate current
+  `sections` table.
 - Fingerprint and foreign-key columns are indexed for later comparison and
   repository queries.
 
 ```text
-pages 1 ─── * sections
+pages
+  │
+  ├── current_version_id ─────────────┐
+  │                                   ▼
+  └──── 1 ─── * page_versions 1 ─── * section_versions
 ```
 
 MongoDB would use its own document/collection representation rather than being
 forced through the SQLAlchemy schema.
 
-This schema stores only the latest normalized state. The repository now owns
-current-state insert/update/read/delete behavior. Version history and change
-records remain later work.
+`pages` owns identity and lifecycle only. `page_versions` and
+`section_versions` are the single source of truth for both current content and
+historical content.
+
+### Persisted version fields
+
+```text
+pages
+├── id
+├── url
+├── is_active
+└── current_version_id
+
+page_versions
+├── id
+├── page_id
+├── version_number
+├── title
+├── meta_description
+├── fingerprint
+└── captured_at
+
+section_versions
+├── id
+├── page_version_id
+├── section_index
+├── headings
+├── text
+└── fingerprint
+```
+
+`section_versions.fingerprint` is retained for planned section-level change
+detection. Canonical URL, DOM id, CSS classes, and direct child count remain in
+the extraction model when useful during crawling, but they are not persisted
+because no current or planned persistence behavior uses them.
+
+### Version creation
+
+```text
+Normalized PageDocument
+        ↓
+Repository
+        ↓
+compare page fingerprint
+        ↓
+changed fingerprint
+        ↓
+page_versions
+        ↓
+section_versions
+```
+
+Version numbering starts at 1 and increments independently for each page. A
+snapshot is created only when the page fingerprint changes. The repository
+always snapshots the complete normalized section set, which preserves added,
+removed, and changed sections across versions. An identical fingerprint never
+creates another version.
+
+Canonical URL and DOM-only metadata are extraction-time observations only.
+They are excluded from fingerprints and are not persisted in Company Knowledge
+history. The persistence layer intentionally keeps only fields used by current
+knowledge retrieval, page-level versioning, and planned section-level change
+detection.
+
+### Schema migration requirement
+
+This PR changes the relational shape of existing Company Knowledge tables.
+`Base.metadata.create_all()` only creates missing tables; it does not migrate an
+existing `pages` table or remove the legacy `sections` table. Before this
+schema is used against a persistent database, an Alembic migration (or an
+explicitly approved destructive database reset for disposable environments) is
+required.
+
+### Removed and reappearing pages
+
+Crawler traversal remains outside the repository. After a crawl completes, its
+caller passes the set of seen validated URLs to
+`mark_missing_pages_inactive()`:
+
+```text
+completed crawl URL set
+        ↓
+compare with active stored pages
+        ↓
+missing URL
+        ↓
+pages.is_active = false
+```
+
+Missing pages are soft-deactivated. Their page identity, current-version pointer,
+and historical versions remain stored, and already inactive pages are not changed
+repeatedly. Saving a previously inactive URL marks it active again and resumes
+normal fingerprint comparison; an unchanged reappearance reuses the same current
+version instead of creating a duplicate.
 
 This separates:
 
@@ -544,7 +671,7 @@ Section fingerprints
         ↓
 Page fingerprint
         ↓
-Repository / version comparison later
+Repository version comparison
 ```
 
 `fingerprint_section()` and `fingerprint_page()` use canonical JSON serialized
@@ -557,8 +684,9 @@ A page fingerprint contains the title, meta description, and ordered section
 fingerprints. It ignores page and canonical URLs because repository context owns
 page identity. Section order remains significant.
 
-Fingerprinting does not repeat normalization or use an LLM. Persistence,
-version comparison, diffs, and change interpretation are later responsibilities.
+Fingerprinting does not repeat normalization or use an LLM. The repository uses
+the fingerprint for deterministic version creation. Semantic diffs and change
+interpretation remain later responsibilities.
 
 ## 7. Optional LLM change interpretation
 

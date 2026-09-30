@@ -79,7 +79,15 @@ def test_save_and_get_page(
     stored_page = repository.get_page(page.url)
 
     assert stored_page is not None
-    assert stored_page.model_dump(mode="json") == page.model_dump(mode="json")
+    assert stored_page.url == page.url
+    assert stored_page.title == page.title
+    assert stored_page.meta_description == page.meta_description
+    assert stored_page.canonical_url is None
+    assert stored_page.sections[0].headings == page.sections[0].headings
+    assert stored_page.sections[0].text == page.sections[0].text
+    assert stored_page.sections[0].id is None
+    assert stored_page.sections[0].classes == []
+    assert stored_page.sections[0].child_count == 0
 
 
 def test_get_page_returns_none_for_unknown_url(
@@ -154,7 +162,17 @@ def test_save_page_updates_existing_current_state(
     stored_page = repository.get_page(changed.url)
 
     assert stored_page is not None
-    assert stored_page.model_dump(mode="json") == changed.model_dump(mode="json")
+    assert stored_page.title == changed.title
+    assert stored_page.meta_description == changed.meta_description
+    assert [section.text for section in stored_page.sections] == [
+        section.text for section in changed.sections
+    ]
+    assert [section.headings for section in stored_page.sections] == [
+        section.headings for section in changed.sections
+    ]
+    assert all(section.id is None for section in stored_page.sections)
+    assert all(section.classes == [] for section in stored_page.sections)
+    assert all(section.child_count == 0 for section in stored_page.sections)
     assert repository.get_page_fingerprint(changed.url) == "c" * 64
 
 
