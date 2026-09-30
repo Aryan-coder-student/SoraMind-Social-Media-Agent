@@ -1,24 +1,18 @@
-"""Mapping helpers between Company Knowledge models and relational rows."""
+"""Mapping helpers between Company Knowledge models and version rows."""
 
 from datetime import UTC
 
 from pydantic import HttpUrl, TypeAdapter
 
-from app.database.schemas.sqlalchemy import (
-    PageRow,
-    PageVersionRow,
-    SectionRow,
-    SectionVersionRow,
-)
-_HTTP_URL_ADAPTER = TypeAdapter(HttpUrl)
-
-
+from app.database.schemas.sqlalchemy import PageVersionRow, SectionVersionRow
 from app.modules.company_knowledge.models.page import (
     Heading,
     PageDocument,
     PageSection,
 )
 from app.modules.company_knowledge.models.version import PageVersion, SectionVersion
+
+_HTTP_URL_ADAPTER = TypeAdapter(HttpUrl)
 
 
 def url_to_string(url: HttpUrl | str) -> str:
@@ -29,28 +23,6 @@ def url_to_string(url: HttpUrl | str) -> str:
 def string_to_url(url: str) -> HttpUrl:
     """Convert a persisted URL into its validated domain representation."""
     return _HTTP_URL_ADAPTER.validate_python(url)
-
-
-def section_to_row(
-    section: PageSection,
-    fingerprint: str,
-) -> SectionRow:
-    """Convert a domain page section into a relational row."""
-    return SectionRow(
-        section_index=section.index,
-        dom_id=section.id,
-        classes=list(section.classes),
-        headings=[
-            {
-                "level": heading.level,
-                "text": heading.text,
-            }
-            for heading in section.headings
-        ],
-        text=section.text,
-        child_count=section.child_count,
-        fingerprint=fingerprint,
-    )
 
 
 def section_to_version_row(
@@ -73,11 +45,11 @@ def section_to_version_row(
 
 
 def row_to_page_document(
-    row: PageRow,
+    row: PageVersionRow,
 ) -> PageDocument:
-    """Convert relational rows back into the factual domain model."""
+    """Convert the current immutable version row into a PageDocument."""
     return PageDocument(
-        url=row.url,
+        url=row.page.url,
         title=row.title,
         meta_description=row.meta_description,
         canonical_url=row.canonical_url,
