@@ -721,7 +721,7 @@ Matching is deterministic and intentionally conservative:
 Exact fingerprint matching happens before heading matching so inserting,
 removing, or reordering unchanged sections does not make neighboring sections
 look changed. Duplicate heading candidates are resolved deterministically by
-preferring the closest section position.
+using the first unmatched section in the existing repository order.
 
 Section position alone is not treated as identity. A different section appearing
 at the same index is therefore reported as removed + added rather than guessed to
