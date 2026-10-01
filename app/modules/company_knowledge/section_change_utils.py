@@ -9,44 +9,33 @@ def find_same_fingerprint_section(
     reference_section: SectionVersion,
     sections: Sequence[SectionVersion],
 ) -> SectionVersion | None:
-    """Find the closest section with identical content."""
-    matching_sections = [
-        section
-        for section in sections
-        if section.fingerprint == reference_section.fingerprint
-    ]
-    return _nearest_section(reference_section, matching_sections)
+    """Return the first section with the same fingerprint."""
+    return next(
+        (
+            section
+            for section in sections
+            if section.fingerprint == reference_section.fingerprint
+        ),
+        None,
+    )
 
 
 def find_same_heading_section(
     reference_section: SectionVersion,
     sections: Sequence[SectionVersion],
 ) -> SectionVersion | None:
-    """Find the closest section with the same non-empty heading signature."""
+    """Return the first section with the same non-empty heading signature."""
     heading_signature = _heading_signature(reference_section)
     if heading_signature is None:
         return None
 
-    matching_sections = [
-        section
-        for section in sections
-        if _heading_signature(section) == heading_signature
-    ]
-    return _nearest_section(reference_section, matching_sections)
-
-
-def _nearest_section(
-    reference_section: SectionVersion,
-    matching_sections: Sequence[SectionVersion],
-) -> SectionVersion | None:
-    """Return the closest candidate, or None when there is no match."""
-    return min(
-        matching_sections,
-        default=None,
-        key=lambda section: (
-            abs(section.index - reference_section.index),
-            section.index,
+    return next(
+        (
+            section
+            for section in sections
+            if _heading_signature(section) == heading_signature
         ),
+        None,
     )
 
 
