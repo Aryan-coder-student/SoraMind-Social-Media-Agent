@@ -257,7 +257,7 @@ This keeps crawling and persistence deterministic while using the LLM only where
 
 - [ ] Land PR #20 pipeline/service orchestration onto `main`
 - [ ] End-to-end Phase 1 crawl → normalize → fingerprint → persist → section-diff tests
-- [ ] End-to-end validation of authoritative completed-crawl reconciliation
+- [ ] End-to-end validation of authoritative completed-crawl missing-page deactivation
 - [ ] Full pipeline validation with the real SQLite repository and browser-backed discovery
 - [ ] Optional LLM-based interpretation of changed content
 
