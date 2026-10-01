@@ -63,7 +63,7 @@ async def test_process_extracts_normalizes_fingerprints_and_persists_page() -> N
         repository=repository,
     )
 
-    result = await service.process(page.url)
+    result = await service.process(str(page.url))
 
     expected_section_fingerprints = tuple(
         fingerprint_section(section)
