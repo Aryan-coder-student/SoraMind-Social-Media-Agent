@@ -94,7 +94,12 @@ app/
 │
 └── modules/
     └── company_knowledge/
-        ├── service.py
+        ├── pipeline.py
+        ├── services/
+        │   ├── __init__.py
+        │   ├── base.py
+        │   ├── discovery_service.py
+        │   └── change_service.py
         ├── crawl/
         │   ├── base.py
         │   ├── bfs.py
@@ -130,7 +135,10 @@ app/
 The agreed persistence design is:
 
 ```text
-CompanyKnowledgeService
+CompanyKnowledgePipeline
+          │
+          ▼
+ Discovery / Change Services
           │
           ▼
     Repository Base
@@ -798,56 +806,74 @@ configured provider
 
 The Company Knowledge module must not branch directly on provider names.
 
-## 9. Service orchestration
+## 9. Pipeline orchestration
 
-`CompanyKnowledgeService` coordinates the Phase 1 components without owning
-browser, database, or provider implementation details:
+`CompanyKnowledgePipeline` is the thin workflow coordinator. It is suitable for
+a later scheduled job to call, but Phase 1 does not implement scheduling.
+
+Responsibilities are separated:
 
 ```text
-crawl
-  ↓
-page discovery
-  ↓
-normalization
-  ↓
-section + page fingerprints
-  ↓
-repository.save_page()
-  ↓
-NEW / UNCHANGED / CHANGED / REACTIVATED
-  ↓
+CompanyKnowledgePipeline
+        ↓
+crawler.discover(seed_url)
+        ↓
+CompanyKnowledgeDiscoveryService
+        ↓
+extract → normalize → fingerprint → persist
+        ↓
+CompanyKnowledgeChangeService
+        ↓
 CHANGED only → compare previous version with current sections
 ```
 
-For a changed page, the service reads only the immediately previous persisted
-version and builds the current `SectionVersion` values from the normalized page
-plus the fingerprints already computed for persistence. It does not re-read the
-new current version from the repository.
+`CompanyKnowledgeDiscoveryService` processes one discovered URL. It owns the
+page-processing flow only:
 
-`build(seed_url, authoritative_crawl=False)` returns one `PageBuildResult`
-per processed page. The result contains the page URL, repository save result,
-and an optional deterministic `SectionChangeSet`.
+- page discovery
+- normalization
+- section/page fingerprints
+- repository persistence
 
-Missing-page reconciliation is opt-in:
+It returns a `ProcessedPage` containing the normalized page, save result, and
+section fingerprints already computed during persistence.
+
+`CompanyKnowledgeChangeService` owns only change analysis. For a `CHANGED`
+page it reads version N-1, builds current `SectionVersion` values from the
+processed page, and calls deterministic section classification. NEW, UNCHANGED,
+and REACTIVATED pages skip version lookup.
+
+The pipeline keeps discovery and change analysis as separate phases. The first
+loop processes discovered pages only; change analysis runs after discovery has
+completed.
+
+`run(seed_url, authoritative_crawl=False)` returns one `PageBuildResult` per
+processed page.
+
+Missing-page reconciliation remains opt-in:
 
 ```python
-await service.build(
+await pipeline.run(
     seed_url,
     authoritative_crawl=True,
 )
 ```
 
-The caller may set `authoritative_crawl=True` only when the crawl is intended
-to represent the complete site. Reconciliation happens only after every
-discovered page has been processed successfully. If page processing raises,
-execution exits before `mark_missing_pages_inactive()` is called.
+The crawler already tracks discovered URLs, but reconciliation must use pages
+that were actually processed and persisted successfully. The pipeline therefore
+derives the URL set from `ProcessedPage` results instead of maintaining another
+`seen_urls` variable.
 
-The service must not contain:
+The caller may set `authoritative_crawl=True` only when the crawl is intended
+to represent the complete site. If discovery, persistence, or change analysis
+raises, execution exits before `mark_missing_pages_inactive()` is called.
+
+The pipeline must not contain:
 
 - raw Playwright implementation details
 - provider-specific LLM SDK logic
 - backend-specific database details
-- crawl traversal logic
+- page normalization/fingerprinting implementation
 - section matching heuristics
 
 ## Documentation sync rule
