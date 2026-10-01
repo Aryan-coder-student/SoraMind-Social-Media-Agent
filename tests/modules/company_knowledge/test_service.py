@@ -167,7 +167,7 @@ async def test_authoritative_build_reconciles_missing_pages() -> None:
 
     await service.build(
         "https://example.com",
-        authoritative=True,
+        authoritative_crawl=True,
     )
 
     repository.mark_missing_pages_inactive.assert_called_once_with({page.url})
@@ -190,7 +190,7 @@ async def test_failed_page_processing_does_not_reconcile_missing_pages() -> None
     with pytest.raises(RuntimeError, match="page extraction failed"):
         await service.build(
             "https://example.com",
-            authoritative=True,
+            authoritative_crawl=True,
         )
 
     repository.mark_missing_pages_inactive.assert_not_called()
