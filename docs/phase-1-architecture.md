@@ -580,6 +580,11 @@ page, navigates it, inspects the rendered DOM, and closes that page in `finally`
 The caller owns the browser lifecycle, so Page Discovery does not start or close
 the shared browser.
 
+After Playwright reaches `networkidle`, Page Discovery samples the selected
+section text every 500 milliseconds until two consecutive samples match, with a
+three-second upper bound. This removes short-lived client-rendering placeholders
+from persisted content without encoding website-specific text or CSS rules.
+
 Use outermost `<section>` elements as the page boundary. Prefer outermost
 sections below `<main>` when a main element exists. If `<main>` contains no
 sections, represent the main element as one factual section so client-rendered
@@ -855,18 +860,18 @@ loop processes discovered pages only; change analysis runs after discovery has
 completed.
 
 `run(seed_url)` returns one `PageBuildResult` per processed page and never
-deactivate missing pagess missing URLs.
+deactivates missing URLs.
 
-Missing-page missing-page deactivation is a separate explicit operation:
+Missing-page deactivation is a separate explicit operation:
 
 ```python
-await pipeline.run_and_deactivate missing pages_missing_pages(seed_url)
+await pipeline.run_and_deactivate_missing_pages(seed_url)
 ```
 
-The crawler already tracks discovered URLs, but missing-page deactivation must use pages
-that were actually processed and persisted successfully. The pipeline therefore
-derives the URL set from `ProcessedPage` results instead of maintaining another
-`seen_urls` variable.
+The crawler already tracks discovered URLs, but missing-page deactivation must
+use pages that were actually processed and persisted successfully. The pipeline
+therefore derives the URL set from `ProcessedPage` results instead of
+maintaining another `seen_urls` variable.
 
 Before processing pages, the missing-page deactivation operation requires
 `crawl_result.is_complete`. BFS marks a result incomplete when an eligible URL
@@ -875,9 +880,17 @@ incomplete result raises `IncompleteCrawlError`, and no pages are processed or
 deactivated by that operation. Callers that intentionally want useful partial
 results can use `run()` instead.
 
-For a complete result, missing-page deactivation uses URLs that were actually processed
-and persisted successfully. If page processing, persistence, or change analysis
-raises, execution exits before `mark_missing_pages_inactive()` is called.
+For a complete result, missing-page deactivation uses URLs that were actually
+processed and persisted successfully. If page processing, persistence, or
+change analysis raises, execution exits before
+`mark_missing_pages_inactive()` is called.
+
+`app/company_knowledge_cli.py` is the Phase 1 composition root for real runs. It
+wires Playwright, BFS, Page Discovery, normalization, the backend-neutral
+pipeline services, and the SQLAlchemy repository to a configured SQLite
+connection. It owns browser and database lifecycle and reports each page's save
+status, version number, and deterministic section changes as JSON. Concrete
+adapter selection remains outside `CompanyKnowledgePipeline`.
 
 The pipeline must not contain:
 

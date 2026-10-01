@@ -26,6 +26,9 @@ SECTION_EVALUATION_SCRIPT = """
 }))
 """
 
+CONTENT_STABILITY_INTERVAL_MS = 500
+CONTENT_STABILITY_MAX_CHECKS = 6
+
 
 class PageDiscovery(PageDiscoveryBase):
     """Extract factual structure from rendered webpages."""
@@ -41,6 +44,12 @@ class PageDiscovery(PageDiscoveryBase):
             await self.browser.navigate(page, url)
             await page.wait_for_load_state("networkidle")
 
+            section_selector = await self._section_selector(page)
+            await self._wait_for_stable_section_text(
+                page,
+                section_selector,
+            )
+
             title = await page.title()
             meta_description = await self._optional_attribute(
                 page,
@@ -53,7 +62,6 @@ class PageDiscovery(PageDiscoveryBase):
                 attribute="href",
             )
 
-            section_selector = await self._section_selector(page)
             raw_sections: list[dict[str, Any]] = await page.locator(
                 section_selector
             ).evaluate_all(SECTION_EVALUATION_SCRIPT)
@@ -83,6 +91,24 @@ class PageDiscovery(PageDiscoveryBase):
             return "main"
 
         return "section:not(section section)"
+
+    async def _wait_for_stable_section_text(
+        self,
+        page: Any,
+        section_selector: str,
+    ) -> None:
+        """Wait briefly for rendered section text to stop changing."""
+        section_locator = page.locator(section_selector)
+        previous_text = await section_locator.all_inner_texts()
+
+        for _ in range(CONTENT_STABILITY_MAX_CHECKS):
+            await page.wait_for_timeout(CONTENT_STABILITY_INTERVAL_MS)
+            current_text = await section_locator.all_inner_texts()
+
+            if current_text == previous_text:
+                return
+
+            previous_text = current_text
 
     async def _optional_attribute(
         self,

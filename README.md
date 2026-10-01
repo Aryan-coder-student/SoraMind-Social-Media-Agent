@@ -12,6 +12,35 @@ The initial implementation is intentionally synchronous and focuses on:
 
 See [docs/phase-1-architecture.md](docs/phase-1-architecture.md) for the agreed architecture, responsibilities, and technology decisions.
 
+## Run the persisted Company Knowledge pipeline
+
+Use the browser-backed command to crawl rendered pages, normalize and
+fingerprint their content, and persist immutable versions to SQLite:
+
+```bash
+python -m app.company_knowledge_cli build https://www.soraminds.com/ \
+  --database-url sqlite:///./soramind.db \
+  --max-pages 10 \
+  --max-depth 2 \
+  --concurrency 5
+```
+
+`build` safely processes useful partial results and never deactivates URLs that
+were not discovered. When the configured limits cover the complete reachable
+site, run the explicit complete-crawl operation:
+
+```bash
+python -m app.company_knowledge_cli \
+  build-and-deactivate-missing-pages \
+  https://www.soraminds.com/ \
+  --database-url sqlite:///./soramind.db \
+  --max-pages 100 \
+  --max-depth 5
+```
+
+The complete-crawl operation exits with `IncompleteCrawlError` before changing
+page state when a page or depth limit is reached or link extraction fails.
+
 ## Run with Docker
 
 The current runnable component discovers internal URLs with the Phase 1 crawler.
