@@ -28,7 +28,7 @@ class IncompleteCrawlError(RuntimeError):
 
 
 class CompanyKnowledgePipeline:
-    """Coordinate discovery, change analysis, and crawl missing-page deactivation."""
+    """Coordinate discovery, change analysis, and missing-page deactivation."""
 
     def __init__(
         self,
@@ -46,7 +46,7 @@ class CompanyKnowledgePipeline:
         self,
         seed_url: str,
     ) -> list[PageBuildResult]:
-        """Process discovered pages without reconciling missing URLs."""
+        """Process discovered pages without deactivating missing URLs."""
         crawl_result = await self.crawler.discover(seed_url)
         processed_pages = await self._process_discovered_pages(crawl_result)
         return self._build_page_results(processed_pages)
