@@ -6,6 +6,7 @@ import pytest
 
 from app.modules.company_knowledge.crawl.bfs import BFSCrawlStrategy
 from app.modules.company_knowledge.crawl.link_extractor import LinkExtractor
+from app.modules.company_knowledge.models.crawl import CrawlIncompleteReason
 
 
 class FakeLinkExtractor(LinkExtractor):
@@ -86,6 +87,8 @@ async def test_discovers_urls_in_breadth_first_order() -> None:
     assert depths == [0, 1, 1, 2]
     assert result.visited_count == 4
     assert result.skipped_count == 3
+    assert result.is_complete is True
+    assert result.incomplete_reasons == set()
 
 
 @pytest.mark.asyncio
@@ -115,6 +118,10 @@ async def test_respects_max_pages() -> None:
         "https://example.com/about",
     ]
     assert result.visited_count == 2
+    assert result.is_complete is False
+    assert result.incomplete_reasons == {
+        CrawlIncompleteReason.PAGE_LIMIT_REACHED,
+    }
 
 
 @pytest.mark.asyncio
@@ -140,6 +147,10 @@ async def test_respects_max_depth() -> None:
         "https://example.com/about",
     ]
     assert result.visited_count == 2
+    assert result.is_complete is False
+    assert result.incomplete_reasons == {
+        CrawlIncompleteReason.DEPTH_LIMIT_REACHED,
+    }
 
 
 @pytest.mark.asyncio
@@ -164,6 +175,10 @@ async def test_page_failure_does_not_stop_crawl() -> None:
 
     assert result.visited_count == 2
     assert result.skipped_count == 1
+    assert result.is_complete is False
+    assert result.incomplete_reasons == {
+        CrawlIncompleteReason.EXTRACTION_FAILED,
+    }
     assert [str(item.url) for item in result.urls] == [
         "https://example.com/",
         "https://example.com/broken",

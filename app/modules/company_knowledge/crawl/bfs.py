@@ -10,7 +10,11 @@ from app.modules.company_knowledge.crawl.validation import (
     is_crawlable_url,
     normalize_host,
 )
-from app.modules.company_knowledge.models.crawl import CrawlResult, DiscoveredURL
+from app.modules.company_knowledge.models.crawl import (
+    CrawlIncompleteReason,
+    CrawlResult,
+    DiscoveredURL,
+)
 
 
 class BFSCrawlStrategy(CrawlStrategy):
@@ -62,6 +66,23 @@ class BFSCrawlStrategy(CrawlStrategy):
             )
         )
 
+    def _has_unvisited_crawlable_link(
+        self,
+        source_url: str,
+        hrefs: list[str],
+        seed_url: str,
+        seen: set[str],
+    ) -> bool:
+        """Return whether a depth limit hides an eligible new URL."""
+        for href in hrefs:
+            url = preprocess_url(source_url, href)
+            if not is_crawlable_url(url, seed_url):
+                continue
+            if self._dedupe_key(url) not in seen:
+                return True
+
+        return False
+
     async def discover(self, seed_url: str) -> CrawlResult:
         """Discover internal URLs level by level from the seed URL."""
         normalized_seed_url = preprocess_url(seed_url, seed_url)
@@ -80,6 +101,7 @@ class BFSCrawlStrategy(CrawlStrategy):
 
         visited_count = 0
         skipped_count = 0
+        incomplete_reasons: set[CrawlIncompleteReason] = set()
 
         while current_level:
             results = await asyncio.gather(
@@ -95,11 +117,23 @@ class BFSCrawlStrategy(CrawlStrategy):
             for item, result in zip(current_level, results):
                 if isinstance(result, BaseException):
                     skipped_count += 1
+                    incomplete_reasons.add(
+                        CrawlIncompleteReason.EXTRACTION_FAILED
+                    )
                     continue
 
                 visited_count += 1
 
                 if item.depth >= self.max_depth:
+                    if self._has_unvisited_crawlable_link(
+                        str(item.url),
+                        result,
+                        normalized_seed_url,
+                        seen,
+                    ):
+                        incomplete_reasons.add(
+                            CrawlIncompleteReason.DEPTH_LIMIT_REACHED
+                        )
                     continue
 
                 next_depth = item.depth + 1
@@ -125,6 +159,9 @@ class BFSCrawlStrategy(CrawlStrategy):
 
                     if len(discovered_urls) >= self.max_pages:
                         skipped_count += 1
+                        incomplete_reasons.add(
+                            CrawlIncompleteReason.PAGE_LIMIT_REACHED
+                        )
                         continue
 
                     discovered_url = DiscoveredURL(
@@ -144,4 +181,5 @@ class BFSCrawlStrategy(CrawlStrategy):
             urls=discovered_urls,
             visited_count=visited_count,
             skipped_count=skipped_count,
+            incomplete_reasons=incomplete_reasons,
         )
