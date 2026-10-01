@@ -120,10 +120,10 @@ async def test_run_coordinates_discovery_and_change_services() -> None:
 
 
 @pytest.mark.asyncio
-async def test_complete_run_can_reconcile_processed_page_urls() -> None:
+async def test_complete_run_can_deactivate missing pages_processed_page_urls() -> None:
     pipeline, _, discovery_service, _, repository = make_pipeline()
 
-    await pipeline.run_and_reconcile_missing_pages(
+    await pipeline.run_and_deactivate_missing_pages(
         "https://example.com"
     )
 
@@ -134,7 +134,7 @@ async def test_complete_run_can_reconcile_processed_page_urls() -> None:
 
 
 @pytest.mark.asyncio
-async def test_standard_run_skips_reconciliation() -> None:
+async def test_standard_run_skips_missing-page deactivation() -> None:
     pipeline, _, _, _, repository = make_pipeline()
 
     await pipeline.run("https://example.com")
@@ -143,14 +143,14 @@ async def test_standard_run_skips_reconciliation() -> None:
 
 
 @pytest.mark.asyncio
-async def test_incomplete_run_rejects_reconciliation() -> None:
+async def test_incomplete_run_rejects_missing-page deactivation() -> None:
     pipeline, crawler, _, _, repository = make_pipeline()
     crawler.discover.return_value.incomplete_reasons = {
         CrawlIncompleteReason.PAGE_LIMIT_REACHED,
     }
 
     with pytest.raises(IncompleteCrawlError, match="page_limit_reached"):
-        await pipeline.run_and_reconcile_missing_pages(
+        await pipeline.run_and_deactivate_missing_pages(
             "https://example.com"
         )
 
@@ -159,12 +159,12 @@ async def test_incomplete_run_rejects_reconciliation() -> None:
 
 
 @pytest.mark.asyncio
-async def test_processing_failure_skips_reconciliation() -> None:
+async def test_processing_failure_skips_missing-page deactivation() -> None:
     pipeline, _, discovery_service, _, repository = make_pipeline()
     discovery_service.process.side_effect = RuntimeError("processing failed")
 
     with pytest.raises(RuntimeError, match="processing failed"):
-        await pipeline.run_and_reconcile_missing_pages(
+        await pipeline.run_and_deactivate_missing_pages(
             "https://example.com"
         )
 
