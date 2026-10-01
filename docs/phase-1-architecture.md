@@ -484,6 +484,13 @@ Current Phase 1 decisions:
 - records the seed URL in `CrawlResult.urls`
 - counts successfully rendered pages in `visited_count`
 - counts rejected duplicate/non-crawlable links and page failures in `skipped_count`
+- reports `PAGE_LIMIT_REACHED`, `DEPTH_LIMIT_REACHED`, and
+  `EXTRACTION_FAILED` when the discovered URL set cannot safely represent the
+  complete reachable site
+
+`max_pages` and `max_depth` remain BFS configuration. The pipeline does not
+read or interpret those limits; it consumes only the resulting completeness
+evidence on `CrawlResult`.
 
 `BrowserLinkExtractor`:
 
@@ -847,16 +854,13 @@ The pipeline keeps discovery and change analysis as separate phases. The first
 loop processes discovered pages only; change analysis runs after discovery has
 completed.
 
-`run(seed_url, authoritative_crawl=False)` returns one `PageBuildResult` per
-processed page.
+`run(seed_url)` returns one `PageBuildResult` per processed page and never
+reconciles missing URLs.
 
-Missing-page reconciliation remains opt-in:
+Missing-page reconciliation is a separate explicit operation:
 
 ```python
-await pipeline.run(
-    seed_url,
-    authoritative_crawl=True,
-)
+await pipeline.run_and_reconcile_missing_pages(seed_url)
 ```
 
 The crawler already tracks discovered URLs, but reconciliation must use pages
@@ -864,8 +868,15 @@ that were actually processed and persisted successfully. The pipeline therefore
 derives the URL set from `ProcessedPage` results instead of maintaining another
 `seen_urls` variable.
 
-The caller may set `authoritative_crawl=True` only when the crawl is intended
-to represent the complete site. If discovery, persistence, or change analysis
+Before processing pages, the reconciliation operation requires
+`crawl_result.is_complete`. BFS marks a result incomplete when an eligible URL
+is excluded by `max_pages` or `max_depth`, or when link extraction fails. An
+incomplete result raises `IncompleteCrawlError`, and no pages are processed or
+deactivated by that operation. Callers that intentionally want useful partial
+results can use `run()` instead.
+
+For a complete result, reconciliation uses URLs that were actually processed
+and persisted successfully. If page processing, persistence, or change analysis
 raises, execution exits before `mark_missing_pages_inactive()` is called.
 
 The pipeline must not contain:

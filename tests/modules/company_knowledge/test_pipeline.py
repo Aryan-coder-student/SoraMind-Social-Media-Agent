@@ -154,6 +154,7 @@ async def test_incomplete_run_rejects_reconciliation() -> None:
             "https://example.com"
         )
 
+    pipeline.discovery_service.process.assert_not_awaited()
     repository.mark_missing_pages_inactive.assert_not_called()
 
 
