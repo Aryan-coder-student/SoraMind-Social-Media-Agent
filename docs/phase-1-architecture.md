@@ -855,27 +855,27 @@ loop processes discovered pages only; change analysis runs after discovery has
 completed.
 
 `run(seed_url)` returns one `PageBuildResult` per processed page and never
-reconciles missing URLs.
+deactivate missing pagess missing URLs.
 
-Missing-page reconciliation is a separate explicit operation:
+Missing-page missing-page deactivation is a separate explicit operation:
 
 ```python
-await pipeline.run_and_reconcile_missing_pages(seed_url)
+await pipeline.run_and_deactivate missing pages_missing_pages(seed_url)
 ```
 
-The crawler already tracks discovered URLs, but reconciliation must use pages
+The crawler already tracks discovered URLs, but missing-page deactivation must use pages
 that were actually processed and persisted successfully. The pipeline therefore
 derives the URL set from `ProcessedPage` results instead of maintaining another
 `seen_urls` variable.
 
-Before processing pages, the reconciliation operation requires
+Before processing pages, the missing-page deactivation operation requires
 `crawl_result.is_complete`. BFS marks a result incomplete when an eligible URL
 is excluded by `max_pages` or `max_depth`, or when link extraction fails. An
 incomplete result raises `IncompleteCrawlError`, and no pages are processed or
 deactivated by that operation. Callers that intentionally want useful partial
 results can use `run()` instead.
 
-For a complete result, reconciliation uses URLs that were actually processed
+For a complete result, missing-page deactivation uses URLs that were actually processed
 and persisted successfully. If page processing, persistence, or change analysis
 raises, execution exits before `mark_missing_pages_inactive()` is called.
 
