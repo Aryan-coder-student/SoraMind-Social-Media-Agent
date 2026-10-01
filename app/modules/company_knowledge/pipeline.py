@@ -16,19 +16,19 @@ from app.repository.base import Repository
 
 
 class IncompleteCrawlError(RuntimeError):
-    """Raised when reconciliation is requested for a partial crawl."""
+    """Raised when missing-page deactivation is requested for a partial crawl."""
 
     def __init__(self, reasons: set[CrawlIncompleteReason]) -> None:
         self.reasons = frozenset(reasons)
         reason_names = ", ".join(sorted(reason.value for reason in reasons))
         super().__init__(
-            f"cannot reconcile missing pages after an incomplete crawl: "
+            f"cannot deactivate missing pages after an incomplete crawl: "
             f"{reason_names}"
         )
 
 
 class CompanyKnowledgePipeline:
-    """Coordinate discovery, change analysis, and crawl reconciliation."""
+    """Coordinate discovery, change analysis, and crawl missing-page deactivation."""
 
     def __init__(
         self,
@@ -51,7 +51,7 @@ class CompanyKnowledgePipeline:
         processed_pages = await self._process_discovered_pages(crawl_result)
         return self._build_page_results(processed_pages)
 
-    async def run_and_reconcile_missing_pages(
+    async def run_and_deactivate_missing_pages(
         self,
         seed_url: str,
     ) -> list[PageBuildResult]:
@@ -98,6 +98,6 @@ class CompanyKnowledgePipeline:
 
     @staticmethod
     def _require_complete_crawl(crawl_result: CrawlResult) -> None:
-        """Reject reconciliation unless BFS proved the crawl was complete."""
+        """Reject missing-page deactivation unless BFS proved the crawl was complete."""
         if not crawl_result.is_complete:
             raise IncompleteCrawlError(crawl_result.incomplete_reasons)
