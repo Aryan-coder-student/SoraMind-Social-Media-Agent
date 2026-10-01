@@ -7,8 +7,9 @@ The initial implementation is intentionally synchronous and focuses on:
 1. URL discovery
 2. Page/section extraction
 3. Normalization
-4. Structured LLM extraction
-5. Persistence
+4. Deterministic fingerprinting and change detection
+5. Versioned persistence
+6. Optional LLM interpretation of changed sections
 
 See [docs/phase-1-architecture.md](docs/phase-1-architecture.md) for the agreed architecture, responsibilities, and technology decisions.
 

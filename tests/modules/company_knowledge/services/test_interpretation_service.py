@@ -61,6 +61,14 @@ class RecordingInterpreter(ChangeInterpreter):
             self.active_calls -= 1
 
 
+def test_rejects_non_positive_concurrency() -> None:
+    with pytest.raises(ValueError, match="concurrency must be at least 1"):
+        CompanyKnowledgeInterpretationService(
+            RecordingInterpreter(),
+            concurrency=0,
+        )
+
+
 def make_section(index: int, text: str) -> SectionVersion:
     return SectionVersion(
         index=index,

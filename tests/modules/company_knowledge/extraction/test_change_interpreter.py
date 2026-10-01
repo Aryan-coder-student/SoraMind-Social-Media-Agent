@@ -61,6 +61,7 @@ async def test_changed_section_returns_validated_narrative() -> None:
 
     narrative = await interpreter.interpret(change)
 
+    assert interpreter.prompt_version == "change-interpretation-v1"
     assert narrative == ChangeNarrative(
         summary="Pricing now includes a Pro plan.",
         semantic_label="pricing",
@@ -94,8 +95,23 @@ async def test_added_section_prompt_contains_only_current_content() -> None:
 
 
 @pytest.mark.asyncio
-async def test_invalid_provider_json_raises_change_context() -> None:
-    interpreter = LLMChangeInterpreter(RecordingProvider("not JSON"))
+@pytest.mark.parametrize(
+    "response",
+    [
+        "not JSON",
+        '{"summary":" ","semantic_label":null,"key_points":[]}',
+        '{"summary":"Removed.","semantic_label":" ","key_points":[]}',
+        '{"summary":"Removed.","semantic_label":null,"key_points":[" "]}',
+        (
+            '{"summary":"Removed.","semantic_label":null,'
+            '"key_points":[],"unsupported":true}'
+        ),
+    ],
+)
+async def test_invalid_provider_json_raises_change_context(
+    response: str,
+) -> None:
+    interpreter = LLMChangeInterpreter(RecordingProvider(response))
     change = SectionChangeInput.from_removed(
         make_section(3, "Legacy plan")
     )

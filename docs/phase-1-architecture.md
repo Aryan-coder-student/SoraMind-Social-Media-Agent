@@ -99,7 +99,8 @@ app/
         │   ├── __init__.py
         │   ├── base.py
         │   ├── discovery_service.py
-        │   └── change_service.py
+        │   ├── change_service.py
+        │   └── interpretation_service.py
         ├── crawl/
         │   ├── base.py
         │   ├── bfs.py
@@ -121,8 +122,9 @@ app/
         ├── section_change_utils.py
         ├── extraction/
         │   ├── base.py
-        │   └── extractor.py
+        │   └── change_interpreter.py
         └── models/
+            ├── change_interpretation.py
             ├── section_change.py
             ├── crawl.py
             ├── knowledge.py
@@ -766,14 +768,14 @@ result models live with the other domain models in
 ## 8. Optional LLM change interpretation
 
 LLMs are not required for primary factual ingestion or fingerprint generation.
-Later change-intelligence work may send only changed pages or sections for
-semantic interpretation.
+`CompanyKnowledgeInterpretationService` is an explicit downstream operation
+that consumes completed `PageBuildResult` values. It skips NEW, UNCHANGED, and
+REACTIVATED pages and sends only deterministic added, removed, and changed
+sections for semantic interpretation.
 
 The shared provider layer is separate from Company Knowledge extraction:
 
 ```text
-LLM consumer
-     ↓
 LLMRegistry
      ↓
 ProviderSpec
@@ -787,36 +789,43 @@ LLMProvider
 `LLMProvider` exposes only asynchronous plain-text generation with an optional
 system prompt. `ProviderSpec` records the provider factory, configurable default
 model, and API-key environment variable name. `LLMRegistry` registers specs and
-constructs providers through those factories without provider-specific branches.
+constructs providers through those factories without provider-specific
+branches. The configured provider is injected into `LLMChangeInterpreter`;
+Company Knowledge does not read the registry or provider configuration.
 
 A provider name identifies the API vendor (`openai`, `anthropic`, or `groq`). A
 model is a configurable identifier passed to that vendor. Domain modules do not
 branch on provider names, and SDK request/response types remain inside the
 provider adapters.
 
-Possible output:
+Each LLM call interprets one section change and returns strict JSON containing:
 
-- page summary
-- section summary
+- factual summary
 - semantic label
-- topics
-- entities
-- knowledge items
-- optional atomic facts
+- key points
+
+Pydantic rejects malformed JSON, blank summaries, and unexpected fields. The
+application stamps deterministic change type and previous/current section
+indices onto the validated narrative instead of trusting model-generated
+identity. Prompt version `change-interpretation-v1` identifies the initial
+response contract.
 
 LLM access goes through:
 
 ```text
-Changed page / section
+PageBuildResult
        ↓
-Change interpreter
+CompanyKnowledgeInterpretationService
        ↓
-core.llm.registry
+ChangeInterpreter
        ↓
-configured provider
+injected LLMProvider
 ```
 
-The Company Knowledge module must not branch directly on provider names.
+Interpretation uses bounded concurrency. Provider and validation failures add
+page URL, version number, change type, and section indices before propagating.
+They never alter or roll back deterministic page persistence. Interpretations
+are returned to the caller and are not persisted in Phase 1.
 
 ## 9. Pipeline orchestration
 
