@@ -48,6 +48,10 @@ class FakeLocator:
 
         return self.sections or []
 
+    async def all_inner_texts(self) -> list[str]:
+        """Return rendered text for content-stability checks."""
+        return [section["text"] for section in self.sections or []]
+
 
 class FakePage:
     """Rendered-page fake with selector-specific factual data."""
@@ -63,6 +67,7 @@ class FakePage:
         sections: list[dict[str, Any]] | None = None,
         main_section: dict[str, Any] | None = None,
         hydrated_sections: list[dict[str, Any]] | None = None,
+        settled_sections: list[dict[str, Any]] | None = None,
         evaluation_error: Exception | None = None,
     ) -> None:
         self.url = url
@@ -73,8 +78,10 @@ class FakePage:
         self.sections = sections or []
         self.main_section = main_section
         self.hydrated_sections = hydrated_sections
+        self.settled_sections = settled_sections
         self.evaluation_error = evaluation_error
         self.load_state_calls: list[str] = []
+        self.timeout_calls: list[int] = []
         self.section_evaluation_count = 0
         self.section_evaluation_script: str | None = None
         self.section_selector: str | None = None
@@ -87,6 +94,13 @@ class FakePage:
 
         if self.hydrated_sections is not None:
             self.sections = self.hydrated_sections
+
+    async def wait_for_timeout(self, timeout_ms: int) -> None:
+        self.timeout_calls.append(timeout_ms)
+
+        if self.settled_sections is not None:
+            self.sections[:] = self.settled_sections
+            self.settled_sections = None
 
     def locator(self, selector: str) -> FakeLocator:
         if selector == 'meta[name="description"]':
@@ -283,6 +297,21 @@ async def test_waits_for_client_rendering_before_extracting_sections() -> None:
 
     assert [item.id for item in document.sections] == ["rendered"]
     assert page.load_state_calls == ["networkidle"]
+
+
+@pytest.mark.asyncio
+async def test_waits_for_rendered_section_text_to_stabilize() -> None:
+    page = FakePage(
+        sections=[section(text="Loading product")],
+        settled_sections=[section(text="Product details")],
+    )
+
+    document = await PageDiscovery(FakeBrowser(page)).extract(
+        "https://example.com/product"
+    )
+
+    assert document.sections[0].text == "Product details"
+    assert page.timeout_calls == [500, 500]
 
 
 @pytest.mark.asyncio

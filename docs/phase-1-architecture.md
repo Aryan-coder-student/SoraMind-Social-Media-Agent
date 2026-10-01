@@ -94,7 +94,12 @@ app/
 │
 └── modules/
     └── company_knowledge/
-        ├── service.py
+        ├── pipeline.py
+        ├── services/
+        │   ├── __init__.py
+        │   ├── base.py
+        │   ├── discovery_service.py
+        │   └── change_service.py
         ├── crawl/
         │   ├── base.py
         │   ├── bfs.py
@@ -130,7 +135,10 @@ app/
 The agreed persistence design is:
 
 ```text
-CompanyKnowledgeService
+CompanyKnowledgePipeline
+          │
+          ▼
+ Discovery / Change Services
           │
           ▼
     Repository Base
@@ -476,6 +484,13 @@ Current Phase 1 decisions:
 - records the seed URL in `CrawlResult.urls`
 - counts successfully rendered pages in `visited_count`
 - counts rejected duplicate/non-crawlable links and page failures in `skipped_count`
+- reports `PAGE_LIMIT_REACHED`, `DEPTH_LIMIT_REACHED`, and
+  `EXTRACTION_FAILED` when the discovered URL set cannot safely represent the
+  complete reachable site
+
+`max_pages` and `max_depth` remain BFS configuration. The pipeline does not
+read or interpret those limits; it consumes only the resulting completeness
+evidence on `CrawlResult`.
 
 `BrowserLinkExtractor`:
 
@@ -564,6 +579,11 @@ Given one URL, return structural facts about the rendered page.
 page, navigates it, inspects the rendered DOM, and closes that page in `finally`.
 The caller owns the browser lifecycle, so Page Discovery does not start or close
 the shared browser.
+
+After Playwright reaches `networkidle`, Page Discovery samples the selected
+section text every 500 milliseconds until two consecutive samples match, with a
+three-second upper bound. This removes short-lived client-rendering placeholders
+from persisted content without encoding website-specific text or CSS rules.
 
 Use outermost `<section>` elements as the page boundary. Prefer outermost
 sections below `<main>` when a main element exists. If `<main>` contains no
@@ -798,33 +818,80 @@ configured provider
 
 The Company Knowledge module must not branch directly on provider names.
 
-## 9. Service orchestration
+## 9. Pipeline orchestration
 
-`service.py` coordinates the Phase 1 flow:
+`CompanyKnowledgePipeline` is the thin workflow coordinator. It is suitable for
+a later scheduled job to call, but Phase 1 does not implement scheduling.
 
-```python
-urls = crawler.discover(seed_url)
+Responsibilities are separated:
 
-for url in urls:
-    page = discovery.extract(url)
-    normalized = normalizer.normalize(page)
-    section_fingerprints = [
-        fingerprinter.fingerprint_section(section)
-        for section in normalized.sections
-    ]
-    page_fingerprint = fingerprinter.fingerprint_page(normalized)
-    repository.save_page(
-        normalized,
-        page_fingerprint,
-        section_fingerprints,
-    )
+```text
+CompanyKnowledgePipeline
+        ↓
+crawler.discover(seed_url)
+        ↓
+CompanyKnowledgeDiscoveryService
+        ↓
+extract → normalize → fingerprint → persist
+        ↓
+CompanyKnowledgeChangeService
+        ↓
+CHANGED only → compare previous version with current sections
 ```
 
-The service must not contain:
+`CompanyKnowledgeDiscoveryService` processes one discovered URL. It owns the
+page-processing flow only:
+
+- page discovery
+- normalization
+- section/page fingerprints
+- repository persistence
+
+It returns a `ProcessedPage` containing the normalized page, save result, and
+section fingerprints already computed during persistence.
+
+`CompanyKnowledgeChangeService` owns only change analysis. For a `CHANGED`
+page it reads version N-1, builds current `SectionVersion` values from the
+processed page, and calls deterministic section classification. NEW, UNCHANGED,
+and REACTIVATED pages skip version lookup.
+
+The pipeline keeps discovery and change analysis as separate phases. The first
+loop processes discovered pages only; change analysis runs after discovery has
+completed.
+
+`run(seed_url)` returns one `PageBuildResult` per processed page and never
+deactivates missing URLs.
+
+Missing-page deactivation is a separate explicit operation:
+
+```python
+await pipeline.run_and_deactivate_missing_pages(seed_url)
+```
+
+The crawler already tracks discovered URLs, but missing-page deactivation must
+use pages that were actually processed and persisted successfully. The pipeline
+therefore derives the URL set from `ProcessedPage` results instead of
+maintaining another `seen_urls` variable.
+
+Before processing pages, the missing-page deactivation operation requires
+`crawl_result.is_complete`. BFS marks a result incomplete when an eligible URL
+is excluded by `max_pages` or `max_depth`, or when link extraction fails. An
+incomplete result raises `IncompleteCrawlError`, and no pages are processed or
+deactivated by that operation. Callers that intentionally want useful partial
+results can use `run()` instead.
+
+For a complete result, missing-page deactivation uses URLs that were actually
+processed and persisted successfully. If page processing, persistence, or
+change analysis raises, execution exits before
+`mark_missing_pages_inactive()` is called.
+
+The pipeline must not contain:
 
 - raw Playwright implementation details
 - provider-specific LLM SDK logic
 - backend-specific database details
+- page normalization/fingerprinting implementation
+- section matching heuristics
 
 ## Documentation sync rule
 
