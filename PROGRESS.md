@@ -31,7 +31,14 @@ Completed and merged pull requests on `main`: **18**
 | #18 | ✅ Merged | Immutable Company Knowledge version history with lean `pages` / `page_versions` / `section_versions` schema, current-version pointers, page-level fingerprint change detection, soft deactivation/reactivation, historical reads, schema splitting, integrity hardening, and versioning tests | 2026-09-30 |
 | #19 | ✅ Merged | Deterministic section-level added / removed / changed classification with exact-fingerprint matching, heading-based changed-section matching, conservative replacement handling, and focused tests | 2026-10-01 |
 
-> **Stacked PR note:** PR #20 (`Split Company Knowledge pipeline services`) was merged into the stacked base branch `feat/section-change-classification`, but its pipeline/service files are not present on `main` yet. It is therefore not counted as completed on `main` in this file.
+> **Stacked PR note:** PR #20 (`Split Company Knowledge pipeline services`) and PR #22 (`Add Company Knowledge pipeline integration tests`) were merged into the stacked branch `feat/section-change-classification`, but those files are still not present on `main`. They are therefore tracked separately below and are not counted in the `main` merged total.
+
+## Completed on stacked branch, not yet on `main`
+
+| PR | Status | Completed work | Merged |
+| --- | --- | --- | --- |
+| #20 | ✅ Merged to stacked branch | Split Company Knowledge orchestration into `pipeline.py`, `discovery_service.py`, `change_service.py`, and shared result models; added safe missing-page deactivation flow and focused tests | 2026-10-01 |
+| #22 | ✅ Merged to stacked branch | Integration coverage across normalization, fingerprinting, SQLite persistence, version creation, section diffing, and missing-page deactivation using real pipeline/repository components with deterministic crawler/discovery test doubles | 2026-10-02 |
 
 ## Completed Phase 1 components
 
@@ -255,13 +262,13 @@ This keeps crawling and persistence deterministic while using the LLM only where
 
 ## Remaining Phase 1 work
 
-- [ ] Land PR #20 pipeline/service orchestration onto `main`
-- [ ] End-to-end Phase 1 crawl → normalize → fingerprint → persist → section-diff tests
-- [ ] End-to-end validation of authoritative completed-crawl missing-page deactivation
-- [ ] Full pipeline validation with the real SQLite repository and browser-backed discovery
+- [ ] Land the stacked pipeline/service changes from PR #20 onto `main`
+- [ ] Land the stacked pipeline integration tests from PR #22 onto `main`
+- [ ] Run full browser-backed pipeline validation against the real website and SQLite repository
+- [ ] Verify missing-page deactivation with a real complete crawl
 - [ ] Optional LLM-based interpretation of changed content
 
-Page-level and section-level deterministic change detection are complete on `main`. Pipeline/service orchestration exists in PR #20, but PR #20 was merged into its stacked feature base rather than `main`, so it still needs to be landed on `main` before being treated as complete there.
+Page-level and section-level deterministic change detection are complete on `main`. Pipeline/service orchestration and end-to-end integration coverage are implemented and merged on the stacked feature branch through PRs #20 and #22, but they are not yet present on `main`.
 
 ## Phase 1 flow
 
@@ -327,7 +334,11 @@ Page-level change detection       ✅
    ↓
 Section-level change detection    ✅
    ↓
-Pipeline orchestration            ⏳
+Pipeline orchestration            🟡 stacked branch
+   ↓
+Pipeline integration tests        🟡 stacked branch
+   ↓
+Browser-backed validation         ⏳
    ↓
 Optional LLM interpretation      ⏳
 ```
