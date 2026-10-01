@@ -800,31 +800,55 @@ The Company Knowledge module must not branch directly on provider names.
 
 ## 9. Service orchestration
 
-`service.py` coordinates the Phase 1 flow:
+`CompanyKnowledgeService` coordinates the Phase 1 components without owning
+browser, database, or provider implementation details:
+
+```text
+crawl
+  ↓
+page discovery
+  ↓
+normalization
+  ↓
+section + page fingerprints
+  ↓
+repository.save_page()
+  ↓
+NEW / UNCHANGED / CHANGED / REACTIVATED
+  ↓
+CHANGED only → compare previous version with current sections
+```
+
+For a changed page, the service reads only the immediately previous persisted
+version and builds the current `SectionVersion` values from the normalized page
+plus the fingerprints already computed for persistence. It does not re-read the
+new current version from the repository.
+
+`build(seed_url, authoritative_crawl=False)` returns one `PageBuildResult`
+per processed page. The result contains the page URL, repository save result,
+and an optional deterministic `SectionChangeSet`.
+
+Missing-page reconciliation is opt-in:
 
 ```python
-urls = crawler.discover(seed_url)
-
-for url in urls:
-    page = discovery.extract(url)
-    normalized = normalizer.normalize(page)
-    section_fingerprints = [
-        fingerprinter.fingerprint_section(section)
-        for section in normalized.sections
-    ]
-    page_fingerprint = fingerprinter.fingerprint_page(normalized)
-    repository.save_page(
-        normalized,
-        page_fingerprint,
-        section_fingerprints,
-    )
+await service.build(
+    seed_url,
+    authoritative_crawl=True,
+)
 ```
+
+The caller may set `authoritative_crawl=True` only when the crawl is intended
+to represent the complete site. Reconciliation happens only after every
+discovered page has been processed successfully. If page processing raises,
+execution exits before `mark_missing_pages_inactive()` is called.
 
 The service must not contain:
 
 - raw Playwright implementation details
 - provider-specific LLM SDK logic
 - backend-specific database details
+- crawl traversal logic
+- section matching heuristics
 
 ## Documentation sync rule
 
