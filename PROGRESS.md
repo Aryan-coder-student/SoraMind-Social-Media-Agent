@@ -30,7 +30,7 @@ Completed and merged pull requests on `main`: **19**
 | #17 | ✅ Merged | Explicit SQLite connection pooling for file-backed databases with configurable QueuePool settings, StaticPool for in-memory SQLite, reuse tests, and docs | 2026-09-29 |
 | #18 | ✅ Merged | Immutable Company Knowledge version history with lean `pages` / `page_versions` / `section_versions` schema, current-version pointers, page-level fingerprint change detection, soft deactivation/reactivation, historical reads, schema splitting, integrity hardening, and versioning tests | 2026-09-30 |
 | #19 | ✅ Merged | Deterministic section-level added / removed / changed classification with exact-fingerprint matching, heading-based changed-section matching, conservative replacement handling, and focused tests | 2026-10-01 |
-| #23 | ✅ Merged | Landed the stacked pipeline and integration work from PRs #20 and #22; added the browser-backed SQLite command, rendered-content stability, complete-crawl deactivation validation, and lifecycle safety tests | 2026-10-02 |
+| #23 | ✅ Merged | Landed the stacked pipeline and integration work from PRs #20 and #22; added rendered-content stability, complete-crawl deactivation validation, and lifecycle safety coverage | 2026-10-02 |
 
 ## Completed Phase 1 components
 

@@ -885,13 +885,6 @@ processed and persisted successfully. If page processing, persistence, or
 change analysis raises, execution exits before
 `mark_missing_pages_inactive()` is called.
 
-`app/company_knowledge_cli.py` is the Phase 1 composition root for real runs. It
-wires Playwright, BFS, Page Discovery, normalization, the backend-neutral
-pipeline services, and the SQLAlchemy repository to a configured SQLite
-connection. It owns browser and database lifecycle and reports each page's save
-status, version number, and deterministic section changes as JSON. Concrete
-adapter selection remains outside `CompanyKnowledgePipeline`.
-
 The pipeline must not contain:
 
 - raw Playwright implementation details
