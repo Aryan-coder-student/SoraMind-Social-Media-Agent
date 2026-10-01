@@ -1,12 +1,12 @@
 # Project Progress
 
-Last updated: 2026-09-30
+Last updated: 2026-10-02
 
 This file tracks Phase 1 implementation progress for the SoraMind Social Media Agent.
 
 ## Current status
 
-Completed and merged pull requests: **17**
+Completed and merged pull requests on `main`: **18**
 
 ### Merged PRs
 
@@ -29,6 +29,9 @@ Completed and merged pull requests: **17**
 | #16 | ✅ Merged | Company Knowledge repository contract and SQLAlchemy current-state persistence with validated URL boundaries, domain↔row mapping utilities, upsert/read/delete behavior, and repository tests | 2026-09-29 |
 | #17 | ✅ Merged | Explicit SQLite connection pooling for file-backed databases with configurable QueuePool settings, StaticPool for in-memory SQLite, reuse tests, and docs | 2026-09-29 |
 | #18 | ✅ Merged | Immutable Company Knowledge version history with lean `pages` / `page_versions` / `section_versions` schema, current-version pointers, page-level fingerprint change detection, soft deactivation/reactivation, historical reads, schema splitting, integrity hardening, and versioning tests | 2026-09-30 |
+| #19 | ✅ Merged | Deterministic section-level added / removed / changed classification with exact-fingerprint matching, heading-based changed-section matching, conservative replacement handling, and focused tests | 2026-10-01 |
+
+> **Stacked PR note:** PR #20 (`Split Company Knowledge pipeline services`) was merged into the stacked base branch `feat/section-change-classification`, but its pipeline/service files are not present on `main` yet. It is therefore not counted as completed on `main` in this file.
 
 ## Completed Phase 1 components
 
@@ -188,6 +191,18 @@ Completed and merged pull requests: **17**
 - [x] Checked-in connection reuse tests
 - [x] Pooling behavior documented
 
+### Section-level change detection
+
+- [x] Deterministic section change classifier
+- [x] Exact fingerprint matches consumed as unchanged
+- [x] Same non-empty heading signature classified as changed
+- [x] Unmatched previous sections classified as removed
+- [x] Unmatched current sections classified as added
+- [x] Reordered unchanged sections ignored
+- [x] Position alone is not treated as section identity
+- [x] Headingless changed sections handled conservatively as removed + added
+- [x] Focused section-change tests
+
 ### Normalization
 
 - [x] Normalizer contract
@@ -240,14 +255,13 @@ This keeps crawling and persistence deterministic while using the LLM only where
 
 ## Remaining Phase 1 work
 
-- [ ] Deterministic section-level added / removed / changed classification
-- [ ] CompanyKnowledgeService orchestration
-- [ ] Safe completed-crawl reconciliation from the service layer
-- [ ] Tests for service / section-diff / end-to-end components
-- [ ] End-to-end Phase 1 crawl → normalize → fingerprint → persist flow
+- [ ] Land PR #20 pipeline/service orchestration onto `main`
+- [ ] End-to-end Phase 1 crawl → normalize → fingerprint → persist → section-diff tests
+- [ ] End-to-end validation of authoritative completed-crawl reconciliation
+- [ ] Full pipeline validation with the real SQLite repository and browser-backed discovery
 - [ ] Optional LLM-based interpretation of changed content
 
-Page-level change detection and version creation are complete through deterministic fingerprint comparison in the repository.
+Page-level and section-level deterministic change detection are complete on `main`. Pipeline/service orchestration exists in PR #20, but PR #20 was merged into its stacked feature base rather than `main`, so it still needs to be landed on `main` before being treated as complete there.
 
 ## Phase 1 flow
 
@@ -311,9 +325,9 @@ Version history                   ✅
    ↓
 Page-level change detection       ✅
    ↓
-Section-level change detection    ⏳
+Section-level change detection    ✅
    ↓
-Service orchestration             ⏳
+Pipeline orchestration            ⏳
    ↓
 Optional LLM interpretation      ⏳
 ```
