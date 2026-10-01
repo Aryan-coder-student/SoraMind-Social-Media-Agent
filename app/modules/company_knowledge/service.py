@@ -10,6 +10,7 @@ from app.modules.company_knowledge.fingerprint.sha256 import (
     fingerprint_page,
     fingerprint_section,
 )
+from app.modules.company_knowledge.models.page import PageDocument
 from app.modules.company_knowledge.models.section_change import SectionChangeSet
 from app.modules.company_knowledge.models.version import (
     SavePageResult,
@@ -49,7 +50,7 @@ class CompanyKnowledgeService:
         self,
         seed_url: str,
         *,
-        authoritative: bool = False,
+        authoritative_crawl: bool = False,
     ) -> list[PageBuildResult]:
         """Build Company Knowledge from one crawl.
 
@@ -92,14 +93,14 @@ class CompanyKnowledgeService:
                 )
             )
 
-        if authoritative:
+        if authoritative_crawl:
             self.repository.mark_missing_pages_inactive(seen_urls)
 
         return page_results
 
     def _get_section_changes(
         self,
-        page,
+        page: PageDocument,
         section_fingerprints: list[str],
         save_result: SavePageResult,
     ) -> SectionChangeSet | None:
