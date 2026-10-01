@@ -1,12 +1,12 @@
 # Project Progress
 
-Last updated: 2026-09-30
+Last updated: 2026-10-02
 
 This file tracks Phase 1 implementation progress for the SoraMind Social Media Agent.
 
 ## Current status
 
-Completed and merged pull requests: **17**
+Completed and merged pull requests on `main`: **18**
 
 ### Merged PRs
 
@@ -29,6 +29,16 @@ Completed and merged pull requests: **17**
 | #16 | ✅ Merged | Company Knowledge repository contract and SQLAlchemy current-state persistence with validated URL boundaries, domain↔row mapping utilities, upsert/read/delete behavior, and repository tests | 2026-09-29 |
 | #17 | ✅ Merged | Explicit SQLite connection pooling for file-backed databases with configurable QueuePool settings, StaticPool for in-memory SQLite, reuse tests, and docs | 2026-09-29 |
 | #18 | ✅ Merged | Immutable Company Knowledge version history with lean `pages` / `page_versions` / `section_versions` schema, current-version pointers, page-level fingerprint change detection, soft deactivation/reactivation, historical reads, schema splitting, integrity hardening, and versioning tests | 2026-09-30 |
+| #19 | ✅ Merged | Deterministic section-level added / removed / changed classification with exact-fingerprint matching, heading-based changed-section matching, conservative replacement handling, and focused tests | 2026-10-01 |
+
+> **Stacked PR note:** PR #20 (`Split Company Knowledge pipeline services`) and PR #22 (`Add Company Knowledge pipeline integration tests`) were merged into the stacked branch `feat/section-change-classification`, but those files are still not present on `main`. They are therefore tracked separately below and are not counted in the `main` merged total.
+
+## Completed on stacked branch, not yet on `main`
+
+| PR | Status | Completed work | Merged |
+| --- | --- | --- | --- |
+| #20 | ✅ Merged to stacked branch | Split Company Knowledge orchestration into `pipeline.py`, `discovery_service.py`, `change_service.py`, and shared result models; added safe missing-page deactivation flow and focused tests | 2026-10-01 |
+| #22 | ✅ Merged to stacked branch | Integration coverage across normalization, fingerprinting, SQLite persistence, version creation, section diffing, and missing-page deactivation using real pipeline/repository components with deterministic crawler/discovery test doubles | 2026-10-02 |
 
 ## Completed Phase 1 components
 
@@ -188,6 +198,18 @@ Completed and merged pull requests: **17**
 - [x] Checked-in connection reuse tests
 - [x] Pooling behavior documented
 
+### Section-level change detection
+
+- [x] Deterministic section change classifier
+- [x] Exact fingerprint matches consumed as unchanged
+- [x] Same non-empty heading signature classified as changed
+- [x] Unmatched previous sections classified as removed
+- [x] Unmatched current sections classified as added
+- [x] Reordered unchanged sections ignored
+- [x] Position alone is not treated as section identity
+- [x] Headingless changed sections handled conservatively as removed + added
+- [x] Focused section-change tests
+
 ### Normalization
 
 - [x] Normalizer contract
@@ -240,14 +262,13 @@ This keeps crawling and persistence deterministic while using the LLM only where
 
 ## Remaining Phase 1 work
 
-- [ ] Deterministic section-level added / removed / changed classification
-- [ ] CompanyKnowledgeService orchestration
-- [ ] Safe completed-crawl reconciliation from the service layer
-- [ ] Tests for service / section-diff / end-to-end components
-- [ ] End-to-end Phase 1 crawl → normalize → fingerprint → persist flow
+- [ ] Land the stacked pipeline/service changes from PR #20 onto `main`
+- [ ] Land the stacked pipeline integration tests from PR #22 onto `main`
+- [ ] Run full browser-backed pipeline validation against the real website and SQLite repository
+- [ ] Verify missing-page deactivation with a real complete crawl
 - [ ] Optional LLM-based interpretation of changed content
 
-Page-level change detection and version creation are complete through deterministic fingerprint comparison in the repository.
+Page-level and section-level deterministic change detection are complete on `main`. Pipeline/service orchestration and end-to-end integration coverage are implemented and merged on the stacked feature branch through PRs #20 and #22, but they are not yet present on `main`.
 
 ## Phase 1 flow
 
@@ -311,9 +332,13 @@ Version history                   ✅
    ↓
 Page-level change detection       ✅
    ↓
-Section-level change detection    ⏳
+Section-level change detection    ✅
    ↓
-Service orchestration             ⏳
+Pipeline orchestration            🟡 stacked branch
+   ↓
+Pipeline integration tests        🟡 stacked branch
+   ↓
+Browser-backed validation         ⏳
    ↓
 Optional LLM interpretation      ⏳
 ```
