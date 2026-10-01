@@ -5,14 +5,21 @@ from unittest.mock import AsyncMock, Mock
 import pytest
 
 from app.modules.company_knowledge.crawl.base import CrawlStrategy
-from app.modules.company_knowledge.models.crawl import CrawlResult, DiscoveredURL
+from app.modules.company_knowledge.models.crawl import (
+    CrawlIncompleteReason,
+    CrawlResult,
+    DiscoveredURL,
+)
 from app.modules.company_knowledge.models.page import PageDocument
 from app.modules.company_knowledge.models.section_change import SectionChangeSet
 from app.modules.company_knowledge.models.version import (
     SavePageResult,
     SavePageStatus,
 )
-from app.modules.company_knowledge.pipeline import CompanyKnowledgePipeline
+from app.modules.company_knowledge.pipeline import (
+    CompanyKnowledgePipeline,
+    IncompleteCrawlError,
+)
 from app.modules.company_knowledge.services.base import ProcessedPage
 from app.modules.company_knowledge.services.change_service import (
     CompanyKnowledgeChangeService,
@@ -113,12 +120,11 @@ async def test_run_coordinates_discovery_and_change_services() -> None:
 
 
 @pytest.mark.asyncio
-async def test_authoritative_run_reconciles_processed_page_urls() -> None:
+async def test_complete_run_can_reconcile_processed_page_urls() -> None:
     pipeline, _, discovery_service, _, repository = make_pipeline()
 
-    await pipeline.run(
-        "https://example.com",
-        authoritative_crawl=True,
+    await pipeline.run_and_reconcile_missing_pages(
+        "https://example.com"
     )
 
     processed_page = discovery_service.process.return_value
@@ -128,10 +134,25 @@ async def test_authoritative_run_reconciles_processed_page_urls() -> None:
 
 
 @pytest.mark.asyncio
-async def test_non_authoritative_run_skips_reconciliation() -> None:
+async def test_standard_run_skips_reconciliation() -> None:
     pipeline, _, _, _, repository = make_pipeline()
 
     await pipeline.run("https://example.com")
+
+    repository.mark_missing_pages_inactive.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_incomplete_run_rejects_reconciliation() -> None:
+    pipeline, crawler, _, _, repository = make_pipeline()
+    crawler.discover.return_value.incomplete_reasons = {
+        CrawlIncompleteReason.PAGE_LIMIT_REACHED,
+    }
+
+    with pytest.raises(IncompleteCrawlError, match="page_limit_reached"):
+        await pipeline.run_and_reconcile_missing_pages(
+            "https://example.com"
+        )
 
     repository.mark_missing_pages_inactive.assert_not_called()
 
@@ -142,9 +163,8 @@ async def test_processing_failure_skips_reconciliation() -> None:
     discovery_service.process.side_effect = RuntimeError("processing failed")
 
     with pytest.raises(RuntimeError, match="processing failed"):
-        await pipeline.run(
-            "https://example.com",
-            authoritative_crawl=True,
+        await pipeline.run_and_reconcile_missing_pages(
+            "https://example.com"
         )
 
     repository.mark_missing_pages_inactive.assert_not_called()
