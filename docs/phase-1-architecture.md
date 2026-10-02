@@ -95,7 +95,7 @@ app/
 └── modules/
     └── company_knowledge/
         ├── pipeline.py
-        ├── errors.py
+        ├── error.py
         ├── services/
         │   ├── __init__.py
         │   ├── base.py
@@ -124,6 +124,7 @@ app/
         ├── extraction/
         │   ├── base.py
         │   ├── change_summary.py
+        │   ├── prompt.yml
         │   └── prompts.py
         └── models/
             ├── change_summary.py
@@ -811,6 +812,8 @@ Pydantic rejects malformed JSON, blank summaries, blank categories, and
 unexpected fields. The application keeps deterministic change type and
 previous/current section indices instead of trusting model-generated identity.
 Prompt version `section-change-summary-v1` identifies the response contract.
+The versioned system prompt is stored in `extraction/prompt.yml` and loaded by
+`prompts.py`, keeping prompt text separate from provider and domain logic.
 
 LLM access goes through:
 

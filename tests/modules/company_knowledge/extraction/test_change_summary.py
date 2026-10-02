@@ -1,11 +1,14 @@
 """Tests for provider-independent LLM section-change summaries."""
 
 import json
+from pathlib import Path
 
 import pytest
+import yaml
 
 from app.core.llm.base import LLMProvider
-from app.modules.company_knowledge.errors import InvalidChangeSummaryError
+from app.modules.company_knowledge.error import InvalidChangeSummaryError
+from app.modules.company_knowledge.extraction import prompts
 from app.modules.company_knowledge.extraction.change_summary import (
     LLMSectionChangeSummarizer,
 )
@@ -40,6 +43,21 @@ def make_section(index: int, text: str) -> SectionVersion:
         headings=[Heading(level=2, text="Pricing")],
         text=text,
         fingerprint=str(index) * 64,
+    )
+
+
+def test_change_summary_prompt_is_stored_in_yaml() -> None:
+    prompt_path = Path(prompts.__file__).with_name("prompt.yml")
+
+    assert prompt_path.is_file()
+    prompt_configuration = yaml.safe_load(
+        prompt_path.read_text(encoding="utf-8")
+    )
+    assert prompt_configuration["version"] == (
+        prompts.CHANGE_SUMMARY_PROMPT_VERSION
+    )
+    assert prompt_configuration["system_prompt"] == (
+        prompts.CHANGE_SUMMARY_SYSTEM_PROMPT
     )
 
 

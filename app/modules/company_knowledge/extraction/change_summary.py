@@ -5,7 +5,7 @@ import json
 from pydantic import ValidationError
 
 from app.core.llm.base import LLMProvider
-from app.modules.company_knowledge.errors import InvalidChangeSummaryError
+from app.modules.company_knowledge.error import InvalidChangeSummaryError
 from app.modules.company_knowledge.extraction.base import SectionChangeSummarizer
 from app.modules.company_knowledge.extraction.prompts import (
     CHANGE_SUMMARY_PROMPT_VERSION,
@@ -65,6 +65,7 @@ class LLMSectionChangeSummarizer(SectionChangeSummarizer):
         if section is None:
             return None
 
-        return section.model_dump(
+        section_payload = section.model_dump(
             include={"headings", "text"},
         )
+        return section_payload
