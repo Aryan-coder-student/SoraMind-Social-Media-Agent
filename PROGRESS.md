@@ -1,8 +1,8 @@
 # Project Progress
 
-Last updated: 2026-10-02
+Last updated: 2026-10-03
 
-This file tracks Phase 1 implementation progress for the SoraMind Social Media Agent.
+This file tracks Phase 1 implementation progress and Phase 2 planning for the SoraMind Social Media Agent.
 
 ## Current status
 
@@ -344,6 +344,52 @@ Browser-backed validation         ✅
    ↓
 Optional LLM summaries            ✅
 ```
+
+
+## Phase 2 — Autonomous Social Content
+
+Phase 2 architecture is defined in `docs/phase-2-architecture.md`.
+
+The planned flow is:
+
+```text
+Company Knowledge + Recent Changes + Campaigns + Post History + Publishing Target
+        ↓
+Content Planner
+        ↓
+ContentPlan
+        ↓
+Knowledge Context
+        ↓
+Platform Content Generation
+        ↓
+Media when required
+        ↓
+Scheduling
+        ↓
+Publishing
+```
+
+### Planned work
+
+- [x] Define Phase 2 architecture
+- [ ] Define publishing-target configuration
+- [ ] Define planner models and content candidates
+- [ ] Implement autonomous content planning
+- [ ] Add recent-post history for repetition control
+- [ ] Build Company Knowledge context retrieval
+- [ ] Add platform-specific content generation
+- [ ] Add media planning and generation
+- [ ] Add scheduling
+- [ ] Add platform publishing adapters
+
+### Phase 2 design rules
+
+- Company Knowledge remains the factual source of truth.
+- Website changes are planner signals, not automatic publish commands.
+- The planner decides what is worth posting without normal human selection.
+- Planning, generation, media, scheduling, and publishing stay separate.
+- Prefer KISS and add abstractions only for real responsibility/provider boundaries.
 
 ## Development workflow
 
