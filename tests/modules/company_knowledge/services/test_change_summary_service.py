@@ -5,7 +5,7 @@ import asyncio
 import pytest
 from pydantic import HttpUrl
 
-from app.modules.company_knowledge.errors import ChangeSummaryError
+from app.modules.company_knowledge.error import ChangeSummaryError
 from app.modules.company_knowledge.extraction.base import SectionChangeSummarizer
 from app.modules.company_knowledge.models.change_summary import (
     ChangeSummary,
