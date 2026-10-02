@@ -122,7 +122,7 @@ Completed and merged pull requests on `main`: **19**
 - [x] Strict JSON summary validation
 - [x] Deterministic added / removed / changed identity retained in output
 - [x] Changed-page and empty-change skip rules
-- [x] Bounded interpretation concurrency
+- [x] Bounded summary concurrency
 - [x] Page, version, change-type, and section context on failures
 - [x] Summarization remains downstream from factual persistence
 
@@ -260,12 +260,12 @@ optional LLM summaries
 human-readable change summary
 ```
 
-This keeps crawling and persistence deterministic while using the LLM only where semantic interpretation adds value.
+This keeps crawling and persistence deterministic while using the LLM only where a concise change summary adds value.
 
 ## Remaining Phase 1 work
 
 No required Phase 1 implementation remains. Persistence of optional derived
-interpretations can be added later without changing factual page versions.
+summaries can be added later without changing factual page versions.
 
 The deterministic Phase 1 pipeline is complete on `main`. A live SoraMinds run
 processed 11 pages through browser discovery, normalization, fingerprinting,
@@ -302,7 +302,7 @@ Deterministic diff
         ↓
 LLM provider
         ↓
-Change interpretation / semantic enrichment
+Change summary
 ```
 
 Current implementation progress in that flow:
@@ -342,7 +342,7 @@ Pipeline integration tests        ✅
    ↓
 Browser-backed validation         ✅
    ↓
-Optional LLM summaries      ✅
+Optional LLM summaries            ✅
 ```
 
 ## Development workflow
