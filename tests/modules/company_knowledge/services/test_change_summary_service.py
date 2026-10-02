@@ -61,6 +61,27 @@ class RecordingSummarizer(SectionChangeSummarizer):
             self.active_calls -= 1
 
 
+class FailingThenCompletingSummarizer(SectionChangeSummarizer):
+    """Fail one call while recording completion of a slower sibling call."""
+
+    def __init__(self) -> None:
+        self.completed_section_indices: list[int] = []
+
+    async def summarize(
+        self,
+        change: SectionChangeContext,
+    ) -> ChangeSummary:
+        assert change.after is not None
+
+        if change.after.index == 1:
+            await asyncio.sleep(0.001)
+            raise RuntimeError("first provider call failed")
+
+        await asyncio.sleep(0.02)
+        self.completed_section_indices.append(change.after.index)
+        return ChangeSummary(summary="Second provider call completed.")
+
+
 def test_rejects_non_positive_concurrency() -> None:
     with pytest.raises(ValueError, match="concurrency must be at least 1"):
         ChangeSummaryService(
@@ -179,3 +200,23 @@ async def test_summarizer_failure_includes_page_and_section_context() -> None:
         ),
     ):
         await service.summarize([result])
+
+
+@pytest.mark.asyncio
+async def test_waits_for_sibling_calls_before_raising_failure() -> None:
+    summarizer = FailingThenCompletingSummarizer()
+    service = ChangeSummaryService(summarizer, concurrency=2)
+    result = make_result(
+        SavePageStatus.CHANGED,
+        SectionChangeSet(
+            added=(
+                make_section(1, "First section"),
+                make_section(2, "Second section"),
+            ),
+        ),
+    )
+
+    with pytest.raises(ChangeSummaryError, match="first provider call failed"):
+        await service.summarize([result])
+
+    assert summarizer.completed_section_indices == [2]

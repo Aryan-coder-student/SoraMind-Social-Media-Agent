@@ -43,6 +43,46 @@ def make_section(index: int, text: str) -> SectionVersion:
     )
 
 
+@pytest.mark.parametrize(
+    ("change_type", "before", "after"),
+    [
+        (SectionChangeType.ADDED, None, None),
+        (
+            SectionChangeType.ADDED,
+            make_section(1, "Before"),
+            make_section(2, "After"),
+        ),
+        (SectionChangeType.REMOVED, None, None),
+        (
+            SectionChangeType.REMOVED,
+            make_section(1, "Before"),
+            make_section(2, "After"),
+        ),
+        (
+            SectionChangeType.CHANGED,
+            make_section(1, "Before"),
+            None,
+        ),
+        (
+            SectionChangeType.CHANGED,
+            None,
+            make_section(2, "After"),
+        ),
+    ],
+)
+def test_rejects_section_context_with_invalid_version_presence(
+    change_type: SectionChangeType,
+    before: SectionVersion | None,
+    after: SectionVersion | None,
+) -> None:
+    with pytest.raises(ValueError, match=f"{change_type.value} change requires"):
+        SectionChangeContext(
+            change_type=change_type,
+            before=before,
+            after=after,
+        )
+
+
 @pytest.mark.asyncio
 async def test_changed_section_returns_validated_summary() -> None:
     provider = RecordingProvider(
@@ -104,6 +144,7 @@ async def test_added_section_prompt_contains_only_current_content() -> None:
         "not JSON",
         '{"summary":" ","category":null,"key_points":[]}',
         '{"summary":"Removed.","category":" ","key_points":[]}',
+        '{"summary":"Removed.","category":null,"key_points":[" "]}',
         (
             '{"summary":"Removed.","category":null,'
             '"key_points":[],"unsupported":true}'

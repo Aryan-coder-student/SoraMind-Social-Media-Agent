@@ -2,10 +2,14 @@
 
 from dataclasses import dataclass
 from enum import Enum
+from typing import Annotated
 
 from pydantic import BaseModel, ConfigDict, Field, HttpUrl
 
 from app.modules.company_knowledge.models.version import SectionVersion
+
+
+NonEmptyText = Annotated[str, Field(min_length=1)]
 
 
 class SectionChangeType(str, Enum):
@@ -23,6 +27,22 @@ class SectionChangeContext:
     change_type: SectionChangeType
     before: SectionVersion | None = None
     after: SectionVersion | None = None
+
+    def __post_init__(self) -> None:
+        """Reject before/after combinations that contradict the change type."""
+        expected_presence = {
+            SectionChangeType.ADDED: (False, True),
+            SectionChangeType.REMOVED: (True, False),
+            SectionChangeType.CHANGED: (True, True),
+        }
+        expected_before, expected_after = expected_presence[self.change_type]
+        actual_presence = (self.before is not None, self.after is not None)
+
+        if actual_presence != (expected_before, expected_after):
+            raise ValueError(
+                f"{self.change_type.value} change requires "
+                f"before={expected_before} and after={expected_after}"
+            )
 
     @property
     def previous_section_index(self) -> int | None:
@@ -44,9 +64,9 @@ class ChangeSummary(BaseModel):
         str_strip_whitespace=True,
     )
 
-    summary: str = Field(min_length=1)
-    category: str | None = Field(default=None, min_length=1)
-    key_points: tuple[str, ...] = ()
+    summary: NonEmptyText
+    category: NonEmptyText | None = None
+    key_points: tuple[NonEmptyText, ...] = ()
 
 
 class SectionChangeSummary(BaseModel):

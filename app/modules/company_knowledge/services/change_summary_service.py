@@ -59,12 +59,19 @@ class ChangeSummaryService:
         if not changes:
             return None
 
-        change_summaries = await asyncio.gather(
+        outcomes = await asyncio.gather(
             *(
                 self._summarize_change(page_result, change)
                 for change in changes
-            )
+            ),
+            return_exceptions=True,
         )
+
+        change_summaries: list[SectionChangeSummary] = []
+        for outcome in outcomes:
+            if isinstance(outcome, Exception):
+                raise outcome
+            change_summaries.append(outcome)
 
         return PageChangeSummary(
             url=page_result.url,
