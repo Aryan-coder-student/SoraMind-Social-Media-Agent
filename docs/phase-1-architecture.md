@@ -95,12 +95,13 @@ app/
 └── modules/
     └── company_knowledge/
         ├── pipeline.py
+        ├── errors.py
         ├── services/
         │   ├── __init__.py
         │   ├── base.py
         │   ├── discovery_service.py
         │   ├── change_service.py
-        │   └── interpretation_service.py
+        │   └── change_summary_service.py
         ├── crawl/
         │   ├── base.py
         │   ├── bfs.py
@@ -122,7 +123,8 @@ app/
         ├── section_change_utils.py
         ├── extraction/
         │   ├── base.py
-        │   └── change_interpreter.py
+        │   ├── change_summary.py
+        │   └── prompts.py
         └── models/
             ├── change_summary.py
             ├── section_change.py
