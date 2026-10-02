@@ -1,7 +1,6 @@
 """LLM-backed summaries of deterministic section changes."""
 
 import json
-from typing import Any
 
 from pydantic import ValidationError
 
@@ -61,20 +60,11 @@ class LLMSectionChangeSummarizer(SectionChangeSummarizer):
     @staticmethod
     def _section_payload(
         section: SectionVersion | None,
-    ) -> dict[str, Any] | None:
-        """Return section fields that are useful for summarization."""
+    ) -> dict[str, object] | None:
+        """Return only section content needed by the LLM."""
         if section is None:
             return None
 
-        headings = [
-            {
-                "level": heading.level,
-                "text": heading.text,
-            }
-            for heading in section.headings
-        ]
-        payload = {
-            "headings": headings,
-            "text": section.text,
-        }
-        return payload
+        return section.model_dump(
+            include={"headings", "text"},
+        )
