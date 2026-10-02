@@ -95,11 +95,13 @@ app/
 └── modules/
     └── company_knowledge/
         ├── pipeline.py
+        ├── errors.py
         ├── services/
         │   ├── __init__.py
         │   ├── base.py
         │   ├── discovery_service.py
-        │   └── change_service.py
+        │   ├── change_service.py
+        │   └── change_summary_service.py
         ├── crawl/
         │   ├── base.py
         │   ├── bfs.py
@@ -121,8 +123,10 @@ app/
         ├── section_change_utils.py
         ├── extraction/
         │   ├── base.py
-        │   └── extractor.py
+        │   ├── change_summary.py
+        │   └── prompts.py
         └── models/
+            ├── change_summary.py
             ├── section_change.py
             ├── crawl.py
             ├── knowledge.py
@@ -678,7 +682,7 @@ text_utils.py
 - section text
 - empty sections
 
-It does not modify page URLs, canonical URLs, section IDs/classes, child counts, or add semantic interpretation.
+It does not modify page URLs, canonical URLs, section IDs/classes, child counts, or add semantic summarization.
 
 Normalization stays synchronous because it performs only local Python data/string cleanup and does not use browser, network, database, or LLM calls.
 
@@ -708,8 +712,7 @@ fingerprints. It ignores page and canonical URLs because repository context owns
 page identity. Section order remains significant.
 
 Fingerprinting does not repeat normalization or use an LLM. The repository uses
-the fingerprint for deterministic version creation. Semantic diffs and change
-interpretation remain later responsibilities.
+the fingerprint for deterministic version creation. Semantic summaries remain a later responsibility.
 
 ## 7. Deterministic section change detection
 
@@ -763,17 +766,17 @@ Small reusable matching helpers live in `section_change_utils.py`, while the
 result models live with the other domain models in
 `models/section_change.py`.
 
-## 8. Optional LLM change interpretation
+## 8. Optional LLM change summaries
 
 LLMs are not required for primary factual ingestion or fingerprint generation.
-Later change-intelligence work may send only changed pages or sections for
-semantic interpretation.
+`ChangeSummaryService` is an explicit downstream operation that consumes
+completed `PageBuildResult` values. It skips NEW, UNCHANGED, and REACTIVATED
+pages and sends only deterministic added, removed, and changed sections for
+human-readable summaries.
 
 The shared provider layer is separate from Company Knowledge extraction:
 
 ```text
-LLM consumer
-     ↓
 LLMRegistry
      ↓
 ProviderSpec
@@ -787,36 +790,44 @@ LLMProvider
 `LLMProvider` exposes only asynchronous plain-text generation with an optional
 system prompt. `ProviderSpec` records the provider factory, configurable default
 model, and API-key environment variable name. `LLMRegistry` registers specs and
-constructs providers through those factories without provider-specific branches.
+constructs providers through those factories without provider-specific
+branches. The configured provider is injected into
+`LLMSectionChangeSummarizer`; Company Knowledge does not read the registry or
+provider configuration.
 
 A provider name identifies the API vendor (`openai`, `anthropic`, or `groq`). A
 model is a configurable identifier passed to that vendor. Domain modules do not
 branch on provider names, and SDK request/response types remain inside the
 provider adapters.
 
-Possible output:
+Each LLM call summarizes one deterministic section change and returns strict JSON
+containing:
 
-- page summary
-- section summary
-- semantic label
-- topics
-- entities
-- knowledge items
-- optional atomic facts
+- factual summary
+- category
+- key points
+
+Pydantic rejects malformed JSON, blank summaries, blank categories, and
+unexpected fields. The application keeps deterministic change type and
+previous/current section indices instead of trusting model-generated identity.
+Prompt version `section-change-summary-v1` identifies the response contract.
 
 LLM access goes through:
 
 ```text
-Changed page / section
+PageBuildResult
        ↓
-Change interpreter
+ChangeSummaryService
        ↓
-core.llm.registry
+SectionChangeSummarizer
        ↓
-configured provider
+injected LLMProvider
 ```
 
-The Company Knowledge module must not branch directly on provider names.
+Summarization uses bounded concurrency. Provider and validation failures add
+page URL, version number, change type, and section indices before propagating.
+They never alter or roll back deterministic page persistence. Summaries are
+returned to the caller and are not persisted in Phase 1.
 
 ## 9. Pipeline orchestration
 
@@ -904,7 +915,7 @@ Whenever the folder structure, architecture, responsibilities, or any decision d
 3. Use Strategy Pattern for crawl discovery.
 4. Use async Playwright.
 5. Share browser lifecycle infrastructure.
-6. Keep DOM discovery factual; keep semantic interpretation optional and downstream.
+6. Keep DOM discovery factual; keep semantic summarization optional and downstream.
 7. Use a shared Repository Pattern under `app/repository`.
 8. Keep database lifecycle contracts, concrete connections, and persistence schemas under `app/database`.
 9. Keep database backends behind `DatabaseConnection`; SQLite is the Phase 1 backend, with PostgreSQL/MongoDB addable later without changing Company Knowledge.
@@ -912,4 +923,4 @@ Whenever the folder structure, architecture, responsibilities, or any decision d
 11. Do not introduce Celery/events in Phase 1.
 12. Do not hardcode business semantics from CSS classes or section positions.
 13. Fingerprint normalized content with SHA-256 while ignoring DOM-only metadata.
-14. Classify section changes deterministically from persisted section snapshots before any optional LLM interpretation.
+14. Classify section changes deterministically from persisted section snapshots before any optional LLM summary.
