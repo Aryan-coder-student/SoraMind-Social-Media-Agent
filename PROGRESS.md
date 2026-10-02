@@ -1,10 +1,15 @@
 # Project Progress
 
-Last updated: 2026-10-02
+Last updated: 2026-10-03
 
-This file tracks Phase 1 implementation progress for the SoraMind Social Media Agent.
+This file tracks Phase 1 implementation progress and Phase 2 planning for the SoraMind Social Media Agent.
 
 ## Current status
+
+Phase 1's deterministic Company Knowledge pipeline is complete on `main`.
+PR #24 adds the optional LLM section-change summary layer and is still under review.
+
+Phase 2 planning has started. No Phase 2 implementation is marked complete yet.
 
 Completed and merged pull requests on `main`: **19**
 
@@ -344,6 +349,128 @@ Browser-backed validation         ✅
    ↓
 Optional LLM summaries            ✅
 ```
+
+
+## Phase 2 — Autonomous Content Planning
+
+### Goal
+
+Phase 2 should automatically decide what social content to create from Company
+Knowledge instead of requiring a human to choose every post.
+
+The publishing target should be configurable, for example 22–30 posts per
+configured period. The planner is responsible for deciding which topics are
+worth posting while avoiding repetitive content.
+
+### Main planning flow
+
+```text
+Scheduled planning cycle
+        ↓
+Content Planner
+        ↓
+Check publishing target and remaining post count
+        ↓
+Read available content signals
+        ↓
+Choose the best topic / angle / platform / format
+        ↓
+Create ContentPlan
+        ↓
+Content generation
+        ↓
+Media generation when required
+        ↓
+Schedule / publish
+```
+
+A raw website change does not directly publish a post. It becomes one signal
+that the planner can use when deciding what content is worth creating.
+
+### Content signals
+
+The autonomous planner can choose from three main sources:
+
+1. **Recent Company Knowledge changes**
+   - New feature
+   - Product update
+   - Pricing or capability change
+   - Other meaningful website changes detected by Phase 1
+
+2. **Existing Company Knowledge**
+   - Product explanations
+   - Feature spotlights
+   - Educational posts
+   - Use cases
+   - Evergreen company/product content
+
+3. **Recurring campaign or product goals**
+   - Example: promote a specific product regularly
+   - Example: create one product-awareness post each week
+   - The planner chooses a fresh angle instead of repeating the same post
+
+### Planner inputs
+
+The first planner version should receive only the information required to make
+the content decision:
+
+```text
+company_knowledge
+recent_changes
+active_campaigns
+recent_post_history
+publishing_targets
+```
+
+`recent_post_history` is required so the planner can avoid repeatedly creating
+different versions of the same topic.
+
+### Planner output
+
+The planner should create a small platform-independent `ContentPlan`, for
+example:
+
+```text
+topic
+source_type
+reason
+goal
+platform
+format
+knowledge_reference
+```
+
+The planner decides **what should be posted**. Text/media generation decides
+**how that plan is rendered**.
+
+Media providers, avatar tools, video models, and rendering vendors are not part
+of the first Phase 2 decision and should remain replaceable implementation
+details.
+
+### Phase 2 planned work
+
+- [ ] Write the Phase 2 architecture document
+- [ ] Define publishing-target configuration
+- [ ] Define `ContentPlannerInput`
+- [ ] Define `ContentPlan`
+- [ ] Define content source types: recent change, existing knowledge, campaign
+- [ ] Add recent-post history for repetition control
+- [ ] Implement autonomous content-topic planning
+- [ ] Add planner tests with deterministic fake LLM responses
+- [ ] Add platform-specific text generation
+- [ ] Define media requirements per generated content plan
+- [ ] Add media generation behind a replaceable boundary
+- [ ] Add scheduling and publishing after content generation is stable
+
+### Phase 2 design rules
+
+- Keep Company Knowledge as the factual source of truth.
+- Do not automatically publish every detected website change.
+- Let the planner judge whether a change is meaningful enough for content.
+- Do not require human selection for the normal autonomous flow.
+- Keep planning separate from generation and publishing.
+- Keep platform/provider-specific media logic out of the planner.
+- Prefer KISS; add abstractions only when they provide a real boundary or reuse.
 
 ## Development workflow
 
