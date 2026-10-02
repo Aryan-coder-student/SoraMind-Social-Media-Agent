@@ -9,7 +9,7 @@ The initial implementation is intentionally synchronous and focuses on:
 3. Normalization
 4. Deterministic fingerprinting and change detection
 5. Versioned persistence
-6. Optional LLM interpretation of changed sections
+6. Optional LLM summaries of changed sections
 
 See [docs/phase-1-architecture.md](docs/phase-1-architecture.md) for the agreed architecture, responsibilities, and technology decisions.
 

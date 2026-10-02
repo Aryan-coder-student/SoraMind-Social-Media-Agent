@@ -1,20 +1,20 @@
-"""Contracts for optional semantic interpretation."""
+"""Contracts for optional section-change summarization."""
 
 from abc import ABC, abstractmethod
 
-from app.modules.company_knowledge.models.change_interpretation import (
-    ChangeNarrative,
-    SectionChangeInput,
+from app.modules.company_knowledge.models.change_summary import (
+    ChangeSummary,
+    SectionChangeContext,
 )
 
 
-class ChangeInterpreter(ABC):
-    """Interpret one deterministic section change semantically."""
+class SectionChangeSummarizer(ABC):
+    """Summarize one deterministic section change."""
 
     @abstractmethod
-    async def interpret(
+    async def summarize(
         self,
-        change: SectionChangeInput,
-    ) -> ChangeNarrative:
-        """Return a validated semantic narrative for one change."""
+        change: SectionChangeContext,
+    ) -> ChangeSummary:
+        """Return a validated summary for one section change."""
         ...

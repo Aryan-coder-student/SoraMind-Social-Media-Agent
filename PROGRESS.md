@@ -116,15 +116,15 @@ Completed and merged pull requests on `main`: **19**
 - [x] Configurable model selection per provider
 - [x] Provider tests without live network calls
 
-### Optional LLM change interpretation
+### Optional LLM change summaries
 
-- [x] Provider-independent `ChangeInterpreter` contract
-- [x] Strict JSON narrative validation
+- [x] Provider-independent `SectionChangeSummarizer` contract
+- [x] Strict JSON summary validation
 - [x] Deterministic added / removed / changed identity retained in output
 - [x] Changed-page and empty-change skip rules
 - [x] Bounded interpretation concurrency
 - [x] Page, version, change-type, and section context on failures
-- [x] Interpretation remains downstream from factual persistence
+- [x] Summarization remains downstream from factual persistence
 
 ### Fingerprinting
 
@@ -255,9 +255,9 @@ deterministic fingerprint / diff
         ↓
 changed sections only
         ↓
-optional LLM interpretation
+optional LLM summaries
         ↓
-human-readable change summary / semantic enrichment
+human-readable change summary
 ```
 
 This keeps crawling and persistence deterministic while using the LLM only where semantic interpretation adds value.
@@ -342,7 +342,7 @@ Pipeline integration tests        ✅
    ↓
 Browser-backed validation         ✅
    ↓
-Optional LLM interpretation      ✅
+Optional LLM summaries      ✅
 ```
 
 ## Development workflow

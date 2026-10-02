@@ -1,14 +1,15 @@
-"""Tests for optional Company Knowledge change interpretation."""
+"""Tests for optional Company Knowledge change summaries."""
 
 import asyncio
 
 import pytest
 from pydantic import HttpUrl
 
-from app.modules.company_knowledge.extraction.base import ChangeInterpreter
-from app.modules.company_knowledge.models.change_interpretation import (
-    ChangeNarrative,
-    SectionChangeInput,
+from app.modules.company_knowledge.errors import ChangeSummaryError
+from app.modules.company_knowledge.extraction.base import SectionChangeSummarizer
+from app.modules.company_knowledge.models.change_summary import (
+    ChangeSummary,
+    SectionChangeContext,
     SectionChangeType,
 )
 from app.modules.company_knowledge.models.page import Heading
@@ -22,25 +23,24 @@ from app.modules.company_knowledge.models.version import (
     SectionVersion,
 )
 from app.modules.company_knowledge.services.base import PageBuildResult
-from app.modules.company_knowledge.services.interpretation_service import (
-    ChangeInterpretationError,
-    CompanyKnowledgeInterpretationService,
+from app.modules.company_knowledge.services.change_summary_service import (
+    ChangeSummaryService,
 )
 
 
-class RecordingInterpreter(ChangeInterpreter):
-    """Record change inputs and return deterministic narratives."""
+class RecordingSummarizer(SectionChangeSummarizer):
+    """Record inputs and return deterministic summaries."""
 
     def __init__(self) -> None:
-        self.changes: list[SectionChangeInput] = []
+        self.changes: list[SectionChangeContext] = []
         self.active_calls = 0
         self.maximum_active_calls = 0
         self.error: Exception | None = None
 
-    async def interpret(
+    async def summarize(
         self,
-        change: SectionChangeInput,
-    ) -> ChangeNarrative:
+        change: SectionChangeContext,
+    ) -> ChangeSummary:
         self.changes.append(change)
         self.active_calls += 1
         self.maximum_active_calls = max(
@@ -52,9 +52,9 @@ class RecordingInterpreter(ChangeInterpreter):
             await asyncio.sleep(0.01)
             if self.error is not None:
                 raise self.error
-            return ChangeNarrative(
-                summary=f"Interpreted {change.change_type.value} section.",
-                semantic_label=None,
+            return ChangeSummary(
+                summary=f"Summarized {change.change_type.value} section.",
+                category=None,
                 key_points=(),
             )
         finally:
@@ -63,8 +63,8 @@ class RecordingInterpreter(ChangeInterpreter):
 
 def test_rejects_non_positive_concurrency() -> None:
     with pytest.raises(ValueError, match="concurrency must be at least 1"):
-        CompanyKnowledgeInterpretationService(
-            RecordingInterpreter(),
+        ChangeSummaryService(
+            RecordingSummarizer(),
             concurrency=0,
         )
 
@@ -93,10 +93,10 @@ def make_result(
 
 
 @pytest.mark.asyncio
-async def test_interprets_added_removed_and_changed_sections() -> None:
-    interpreter = RecordingInterpreter()
-    service = CompanyKnowledgeInterpretationService(
-        interpreter,
+async def test_summarizes_added_removed_and_changed_sections() -> None:
+    summarizer = RecordingSummarizer()
+    service = ChangeSummaryService(
+        summarizer,
         concurrency=2,
     )
     previous_removed = make_section(1, "Legacy plan")
@@ -117,32 +117,32 @@ async def test_interprets_added_removed_and_changed_sections() -> None:
         ),
     )
 
-    interpretations = await service.interpret([result])
+    summaries = await service.summarize([result])
 
-    assert len(interpretations) == 1
-    page_interpretation = interpretations[0]
-    assert str(page_interpretation.url) == "https://example.com/pricing"
-    assert page_interpretation.version_number == 2
+    assert len(summaries) == 1
+    page_summary = summaries[0]
+    assert str(page_summary.url) == "https://example.com/pricing"
+    assert page_summary.version_number == 2
     assert [
-        change.change_type for change in page_interpretation.changes
+        change.change_type for change in page_summary.changes
     ] == [
         SectionChangeType.ADDED,
         SectionChangeType.REMOVED,
         SectionChangeType.CHANGED,
     ]
-    assert page_interpretation.changes[0].previous_section_index is None
-    assert page_interpretation.changes[0].current_section_index == 2
-    assert page_interpretation.changes[1].previous_section_index == 1
-    assert page_interpretation.changes[1].current_section_index is None
-    assert page_interpretation.changes[2].previous_section_index == 3
-    assert page_interpretation.changes[2].current_section_index == 4
-    assert interpreter.maximum_active_calls == 2
+    assert page_summary.changes[0].previous_section_index is None
+    assert page_summary.changes[0].current_section_index == 2
+    assert page_summary.changes[1].previous_section_index == 1
+    assert page_summary.changes[1].current_section_index is None
+    assert page_summary.changes[2].previous_section_index == 3
+    assert page_summary.changes[2].current_section_index == 4
+    assert summarizer.maximum_active_calls == 2
 
 
 @pytest.mark.asyncio
 async def test_skips_results_without_deterministic_section_changes() -> None:
-    interpreter = RecordingInterpreter()
-    service = CompanyKnowledgeInterpretationService(interpreter)
+    summarizer = RecordingSummarizer()
+    service = ChangeSummaryService(summarizer)
     section_changes = SectionChangeSet(
         added=(make_section(1, "Unexpected input"),)
     )
@@ -153,17 +153,17 @@ async def test_skips_results_without_deterministic_section_changes() -> None:
         make_result(SavePageStatus.CHANGED, SectionChangeSet()),
     ]
 
-    interpretations = await service.interpret(results)
+    summaries = await service.summarize(results)
 
-    assert interpretations == []
-    assert interpreter.changes == []
+    assert summaries == []
+    assert summarizer.changes == []
 
 
 @pytest.mark.asyncio
-async def test_interpreter_failure_includes_page_and_section_context() -> None:
-    interpreter = RecordingInterpreter()
-    interpreter.error = RuntimeError("provider unavailable")
-    service = CompanyKnowledgeInterpretationService(interpreter)
+async def test_summarizer_failure_includes_page_and_section_context() -> None:
+    summarizer = RecordingSummarizer()
+    summarizer.error = RuntimeError("provider unavailable")
+    service = ChangeSummaryService(summarizer)
     result = make_result(
         SavePageStatus.CHANGED,
         SectionChangeSet(
@@ -172,10 +172,10 @@ async def test_interpreter_failure_includes_page_and_section_context() -> None:
     )
 
     with pytest.raises(
-        ChangeInterpretationError,
+        ChangeSummaryError,
         match=(
             "https://example.com/pricing.*version 2.*added.*"
             "current section 5.*provider unavailable"
         ),
     ):
-        await service.interpret([result])
+        await service.summarize([result])

@@ -1,17 +1,18 @@
-"""Tests for provider-independent LLM change interpretation."""
+"""Tests for provider-independent LLM section-change summaries."""
 
 import json
 
 import pytest
 
 from app.core.llm.base import LLMProvider
-from app.modules.company_knowledge.extraction.change_interpreter import (
-    InvalidChangeNarrativeError,
-    LLMChangeInterpreter,
+from app.modules.company_knowledge.errors import InvalidChangeSummaryError
+from app.modules.company_knowledge.extraction.change_summary import (
+    LLMSectionChangeSummarizer,
 )
-from app.modules.company_knowledge.models.change_interpretation import (
-    ChangeNarrative,
-    SectionChangeInput,
+from app.modules.company_knowledge.models.change_summary import (
+    ChangeSummary,
+    SectionChangeContext,
+    SectionChangeType,
 )
 from app.modules.company_knowledge.models.page import Heading
 from app.modules.company_knowledge.models.version import SectionVersion
@@ -43,28 +44,29 @@ def make_section(index: int, text: str) -> SectionVersion:
 
 
 @pytest.mark.asyncio
-async def test_changed_section_returns_validated_narrative() -> None:
+async def test_changed_section_returns_validated_summary() -> None:
     provider = RecordingProvider(
         json.dumps(
             {
                 "summary": "Pricing now includes a Pro plan.",
-                "semantic_label": "pricing",
+                "category": "pricing",
                 "key_points": ["A Pro plan was added."],
             }
         )
     )
-    interpreter = LLMChangeInterpreter(provider)
-    change = SectionChangeInput.from_changed(
+    summarizer = LLMSectionChangeSummarizer(provider)
+    change = SectionChangeContext(
+        change_type=SectionChangeType.CHANGED,
         before=make_section(1, "Starter plan"),
         after=make_section(2, "Starter and Pro plans"),
     )
 
-    narrative = await interpreter.interpret(change)
+    summary = await summarizer.summarize(change)
 
-    assert interpreter.prompt_version == "change-interpretation-v1"
-    assert narrative == ChangeNarrative(
+    assert summarizer.prompt_version == "section-change-summary-v1"
+    assert summary == ChangeSummary(
         summary="Pricing now includes a Pro plan.",
-        semantic_label="pricing",
+        category="pricing",
         key_points=("A Pro plan was added.",),
     )
     prompt, system_prompt = provider.calls[0]
@@ -77,15 +79,16 @@ async def test_changed_section_returns_validated_narrative() -> None:
 @pytest.mark.asyncio
 async def test_added_section_prompt_contains_only_current_content() -> None:
     provider = RecordingProvider(
-        '{"summary":"Careers were added.","semantic_label":"careers",'
+        '{"summary":"Careers were added.","category":"careers",'
         '"key_points":[]}'
     )
-    interpreter = LLMChangeInterpreter(provider)
-    change = SectionChangeInput.from_added(
-        make_section(4, "Explore open roles")
+    summarizer = LLMSectionChangeSummarizer(provider)
+    change = SectionChangeContext(
+        change_type=SectionChangeType.ADDED,
+        after=make_section(4, "Explore open roles"),
     )
 
-    await interpreter.interpret(change)
+    await summarizer.summarize(change)
 
     prompt, _ = provider.calls[0]
     prompt_payload = json.loads(prompt)
@@ -99,11 +102,10 @@ async def test_added_section_prompt_contains_only_current_content() -> None:
     "response",
     [
         "not JSON",
-        '{"summary":" ","semantic_label":null,"key_points":[]}',
-        '{"summary":"Removed.","semantic_label":" ","key_points":[]}',
-        '{"summary":"Removed.","semantic_label":null,"key_points":[" "]}',
+        '{"summary":" ","category":null,"key_points":[]}',
+        '{"summary":"Removed.","category":" ","key_points":[]}',
         (
-            '{"summary":"Removed.","semantic_label":null,'
+            '{"summary":"Removed.","category":null,'
             '"key_points":[],"unsupported":true}'
         ),
     ],
@@ -111,13 +113,14 @@ async def test_added_section_prompt_contains_only_current_content() -> None:
 async def test_invalid_provider_json_raises_change_context(
     response: str,
 ) -> None:
-    interpreter = LLMChangeInterpreter(RecordingProvider(response))
-    change = SectionChangeInput.from_removed(
-        make_section(3, "Legacy plan")
+    summarizer = LLMSectionChangeSummarizer(RecordingProvider(response))
+    change = SectionChangeContext(
+        change_type=SectionChangeType.REMOVED,
+        before=make_section(3, "Legacy plan"),
     )
 
     with pytest.raises(
-        InvalidChangeNarrativeError,
+        InvalidChangeSummaryError,
         match="removed section 3",
     ):
-        await interpreter.interpret(change)
+        await summarizer.summarize(change)
