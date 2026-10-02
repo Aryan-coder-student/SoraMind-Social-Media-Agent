@@ -449,7 +449,7 @@ details.
 
 ### Phase 2 planned work
 
-- [ ] Write the Phase 2 architecture document
+- [x] Write the Phase 2 architecture document
 - [ ] Define publishing-target configuration
 - [ ] Define `ContentPlannerInput`
 - [ ] Define `ContentPlan`
