@@ -3,7 +3,7 @@
 import asyncio
 from collections.abc import Sequence
 
-from app.modules.company_knowledge.errors import ChangeSummaryError
+from app.modules.company_knowledge.error import ChangeSummaryError
 from app.modules.company_knowledge.extraction.base import SectionChangeSummarizer
 from app.modules.company_knowledge.models.change_summary import (
     PageChangeSummary,
