@@ -11,7 +11,9 @@ The initial implementation is intentionally synchronous and focuses on:
 5. Versioned persistence
 6. Optional LLM summaries of changed sections
 
-See [docs/phase-1-architecture.md](docs/phase-1-architecture.md) for the agreed architecture, responsibilities, and technology decisions.
+See [docs/phase-1-architecture.md](docs/phase-1-architecture.md) for the implemented Company Knowledge architecture.
+
+Phase 2 autonomous content planning is designed in [docs/phase-2-architecture.md](docs/phase-2-architecture.md).
 
 ## Run with Docker
 
