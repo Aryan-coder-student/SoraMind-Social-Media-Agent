@@ -124,7 +124,7 @@ app/
         │   ├── base.py
         │   └── change_interpreter.py
         └── models/
-            ├── change_interpretation.py
+            ├── change_summary.py
             ├── section_change.py
             ├── crawl.py
             ├── knowledge.py
